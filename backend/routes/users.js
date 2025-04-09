@@ -22,6 +22,21 @@ router.post('/', auth, async (req, res) => {
         if (req.user.role !== 'Admin' && req.user.role !== 'Project Manager') {
             return res.status(403).json({ error: 'Access denied' });
         }
+        
+        // Validate team for Developers
+        if (req.body.role === 'Developer' && (!req.body.team || req.body.team === 'None')) {
+            return res.status(400).json({ error: 'Team is required for Developer role' });
+        }
+        
+        // Set proper values for Admin and Project Manager
+        if (req.body.role === 'Admin') {
+            req.body.team = 'admin';
+            req.body.level = 'admin';
+        } else if (req.body.role === 'Project Manager') {
+            req.body.team = 'pm';
+            req.body.level = 'pm';
+        }
+        
         const user = new User(req.body);
         await user.save();
         res.status(201).json(user);
@@ -36,6 +51,21 @@ router.patch('/:id', auth, async (req, res) => {
         if (req.user.role !== 'Admin' && req.user.role !== 'Project Manager') {
             return res.status(403).json({ error: 'Access denied' });
         }
+        
+        // Validate team for Developers
+        if (req.body.role === 'Developer' && (!req.body.team || req.body.team === 'None')) {
+            return res.status(400).json({ error: 'Team is required for Developer role' });
+        }
+        
+        // Set proper values for Admin and Project Manager
+        if (req.body.role === 'Admin') {
+            req.body.team = 'admin';
+            req.body.level = 'admin';
+        } else if (req.body.role === 'Project Manager') {
+            req.body.team = 'pm';
+            req.body.level = 'pm';
+        }
+        
         const user = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
         if (!user) {
             return res.status(404).json({ error: 'User not found' });

@@ -353,18 +353,32 @@ const ProjectList = () => {
         }
     };
 
-    // Helper function to group members by team
-    const getMembersByTeam = (members) => {
-        return members.reduce((teams, member) => {
-            if (!member.userId) return teams;
-            
-            const team = member.userId.team;
-            if (!teams[team]) {
-                teams[team] = [];
-            }
-            teams[team].push(member);
-            return teams;
-        }, {});
+    // Helper function to get user short description
+    const getUserShortDescription = (user) => {
+        if (user.role === 'Project Manager') return 'Project Manager';
+        
+        // For developers, combine team and level
+        const teamDisplay = {
+            'Backend': 'Backend',
+            'Frontend': 'Frontend',
+            'Database': 'DB',
+            'Design': 'Design',
+            'DevOps': 'DevOps',
+            'Tester/Security': 'QA/Security'
+        };
+        
+        const levelDisplay = {
+            'Lead': 'Lead',
+            'Senior': 'Senior',
+            'Dev': '',
+            'Junior': 'Junior'
+        };
+        
+        const team = teamDisplay[user.team] || user.team;
+        const level = levelDisplay[user.level] || '';
+        
+        // Format as "Backend Senior" or "Frontend Junior"
+        return `${team} ${level}`.trim();
     };
 
     // Helper function to get appropriate badge color based on role
@@ -387,7 +401,8 @@ const ProjectList = () => {
             case 'DevOps': return 'danger';
             case 'Tester/Security': return 'warning';
             case 'admin': return 'danger';
-            case 'pm': return 'warning';
+            case 'pm':
+            case 'Project Manager': return 'warning';
             default: return 'secondary';
         }
     };
@@ -400,6 +415,107 @@ const ProjectList = () => {
             case 'Pending': return 'warning';
             default: return 'secondary';
         }
+    };
+
+    // Modified render for project members
+    const renderProjectMembers = (project) => {
+        if (!project.members || project.members.length === 0) {
+            return <Alert severity="info">No members in this project yet.</Alert>;
+        }
+        
+        // Filter out Admin users
+        const filteredMembers = project.members.filter(member => 
+            member.userId && member.userId.role !== 'Admin'
+        );
+        
+        if (filteredMembers.length === 0) {
+            return <Alert severity="info">No members in this project yet.</Alert>;
+        }
+        
+        // Get unique teams from members
+        const allTeams = ['Project Manager', 'Backend', 'Frontend', 'Database', 'Design', 'DevOps', 'Tester/Security'];
+        
+        // Sort members by level (seniority)
+        const levelOrder = { 'Lead': 0, 'Senior': 1, 'Dev': 2, 'Junior': 3, 'pm': 4 };
+        
+        const sortedMembers = [...filteredMembers].sort((a, b) => {
+            // Sort by team first
+            const teamA = a.userId.team;
+            const teamB = b.userId.team;
+            
+            // Project Managers come first
+            if (a.userId.role === 'Project Manager' && b.userId.role !== 'Project Manager') return -1;
+            if (a.userId.role !== 'Project Manager' && b.userId.role === 'Project Manager') return 1;
+            
+            // Then sort by level (seniority)
+            return levelOrder[a.userId.level] - levelOrder[b.userId.level];
+        });
+        
+        // Group by team
+        const membersByTeam = {};
+        allTeams.forEach(team => {
+            membersByTeam[team] = [];
+        });
+        
+        // Assign members to their teams
+        sortedMembers.forEach(member => {
+            if (member.userId.role === 'Project Manager') {
+                membersByTeam['Project Manager'].push(member);
+            } else {
+                if (membersByTeam[member.userId.team]) {
+                    membersByTeam[member.userId.team].push(member);
+                }
+            }
+        });
+        
+        return (
+            <div className="table-responsive">
+                <table className="table table-bordered">
+                    <thead>
+                        <tr>
+                            {Object.keys(membersByTeam).map(team => 
+                                membersByTeam[team].length > 0 && (
+                                    <th key={team} className={`bg-${getTeamBadgeColor(team === 'Project Manager' ? 'pm' : team)} text-white`}>
+                                        {team}
+                                    </th>
+                                )
+                            )}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            {Object.keys(membersByTeam).map(team => 
+                                membersByTeam[team].length > 0 && (
+                                    <td key={team} className="p-0">
+                                        <ListGroup variant="flush">
+                                            {membersByTeam[team].map(member => (
+                                                <ListGroup.Item key={member.userId._id} className="d-flex justify-content-between align-items-center">
+                                                    <div>
+                                                        <div>{member.userId.username}</div>
+                                                        <small className="text-muted">
+                                                            {getUserShortDescription(member.userId)}
+                                                        </small>
+                                                    </div>
+                                                    {userRole === 'Admin' && (
+                                                        <IconButton
+                                                            size="small"
+                                                            color="error"
+                                                            onClick={() => handleRemoveMember(project._id, member.userId._id)}
+                                                        >
+                                                            <DeleteIcon fontSize="small" />
+                                                        </IconButton>
+                                                    )}
+                                                </ListGroup.Item>
+                                            ))}
+                                        </ListGroup>
+                                    </td>
+                                )
+                            )}
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        );
     };
 
     return (
@@ -496,45 +612,7 @@ const ProjectList = () => {
                                                                 )}
                                                             </div>
 
-                                                            {project.members && project.members.length > 0 ? (
-                                                                Object.entries(getMembersByTeam(project.members)).map(([team, members]) => (
-                                                                    <Card key={team} className="mb-3">
-                                                                        <Card.Header className="bg-light">
-                                                                            <Badge bg={getTeamBadgeColor(team)}>
-                                                                                {team}
-                                                                            </Badge>
-                                                                        </Card.Header>
-                                                                        <ListGroup variant="flush">
-                                                                            {members.map((member) => (
-                                                                                <ListGroup.Item key={member.userId._id} className="d-flex justify-content-between align-items-center">
-                                                                                    <div>
-                                                                                        <div>{member.userId.username}</div>
-                                                                                        <div className="d-flex mt-1">
-                                                                                            <Badge bg={getRoleBadgeColor(member.userId.role)} className="me-1">
-                                                                                                {member.userId.role}
-                                                                                            </Badge>
-                                                                                            <Badge bg="secondary">
-                                                                                                {member.userId.level}
-                                                                                            </Badge>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                    {userRole === 'Admin' && (
-                                                                                        <IconButton
-                                                                                            size="small"
-                                                                                            color="error"
-                                                                                            onClick={() => handleRemoveMember(project._id, member.userId._id)}
-                                                                                        >
-                                                                                            <DeleteIcon fontSize="small" />
-                                                                                        </IconButton>
-                                                                                    )}
-                                                                                </ListGroup.Item>
-                                                                            ))}
-                                                                        </ListGroup>
-                                                                    </Card>
-                                                                ))
-                                                            ) : (
-                                                                <Alert severity="info">No members in this project yet.</Alert>
-                                                            )}
+                                                            {renderProjectMembers(project)}
                                                         </div>
                                                     </Col>
                                                     
