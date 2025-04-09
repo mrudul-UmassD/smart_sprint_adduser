@@ -3,6 +3,7 @@ const router = express.Router();
 const Project = require('../models/Project');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
+const mongoose = require('mongoose');
 
 // Get all projects
 router.get('/', auth, async (req, res) => {
@@ -66,17 +67,45 @@ router.get('/:id', auth, async (req, res) => {
 // Create a new project (Admin only)
 router.post('/', auth, async (req, res) => {
     try {
-        if (req.user.role !== 'Admin') {
-            return res.status(403).json({ error: 'Only Admin can create projects' });
+        // Validate user has a valid team
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
         }
         
-        const project = new Project({
-            ...req.body,
-            createdBy: req.user.id
-        });
+        if (user.team === 'None' && user.role !== 'Admin') {
+            return res.status(400).json({ error: 'You must be assigned to a team before creating projects' });
+        }
         
-        await project.save();
-        res.status(201).json(project);
+        if (req.user.role === 'Admin') {
+            // Admin can directly create projects
+            const project = new Project({
+                ...req.body,
+                createdBy: req.user.id
+            });
+            
+            await project.save();
+            res.status(201).json(project);
+        } else if (req.user.role === 'Project Manager') {
+            // Project Managers must request project creation
+            const projectRequest = {
+                name: req.body.name,
+                description: req.body.description || '',
+                requestedBy: req.user.id,
+                status: 'Pending'
+            };
+            
+            // Store in the ProjectRequests collection
+            const newProjectRequest = new ProjectRequest(projectRequest);
+            await newProjectRequest.save();
+            
+            res.status(201).json({ 
+                message: 'Project creation request submitted successfully',
+                request: newProjectRequest
+            });
+        } else {
+            return res.status(403).json({ error: 'Only Admin and Project Manager can create or request projects' });
+        }
     } catch (error) {
         res.status(400).json({ error: error.message });
     }
@@ -155,6 +184,11 @@ router.post('/:id/members', auth, async (req, res) => {
         const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
+        }
+        
+        // Validate user has a team
+        if (user.team === 'None' && role !== 'Project Manager' && user.role !== 'Admin') {
+            return res.status(400).json({ error: 'User must be assigned to a team before adding to a project' });
         }
         
         // Check if user is already a member
@@ -236,6 +270,11 @@ router.post('/:id/requests', auth, async (req, res) => {
         const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
+        }
+        
+        // Validate user has a team
+        if (user.team === 'None' && user.role !== 'Admin' && user.role !== 'Project Manager') {
+            return res.status(400).json({ error: 'User must be assigned to a team before adding to a project' });
         }
         
         // Check if user is already a member
@@ -332,6 +371,125 @@ router.patch('/:id/requests/:requestId', auth, async (req, res) => {
             .populate('requests.requestedBy', 'username');
             
         res.json(updatedProject);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// Create the ProjectRequest model
+const projectRequestSchema = new mongoose.Schema({
+    name: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    description: {
+        type: String,
+        trim: true,
+        default: ''
+    },
+    requestedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+    },
+    status: {
+        type: String,
+        enum: ['Pending', 'Approved', 'Rejected'],
+        default: 'Pending'
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now
+    }
+});
+
+const ProjectRequest = mongoose.model('ProjectRequest', projectRequestSchema);
+
+// Get all project requests (Admin only)
+router.get('/admin/project-requests', auth, async (req, res) => {
+    try {
+        if (req.user.role !== 'Admin') {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+        
+        const requests = await ProjectRequest.find()
+            .populate('requestedBy', 'username role')
+            .sort({ createdAt: -1 });
+            
+        res.json(requests);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get project requests by project manager
+router.get('/my-project-requests', auth, async (req, res) => {
+    try {
+        if (req.user.role !== 'Project Manager') {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+        
+        const requests = await ProjectRequest.find({ requestedBy: req.user.id })
+            .sort({ createdAt: -1 });
+            
+        res.json(requests);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Approve/Reject project request (Admin only)
+router.patch('/admin/project-requests/:requestId', auth, async (req, res) => {
+    try {
+        if (req.user.role !== 'Admin') {
+            return res.status(403).json({ error: 'Only Admin can approve or reject project requests' });
+        }
+        
+        const { status } = req.body;
+        
+        if (!status || !['Approved', 'Rejected'].includes(status)) {
+            return res.status(400).json({ error: 'Valid status (Approved or Rejected) is required' });
+        }
+        
+        const projectRequest = await ProjectRequest.findById(req.params.requestId);
+        
+        if (!projectRequest) {
+            return res.status(404).json({ error: 'Project request not found' });
+        }
+        
+        projectRequest.status = status;
+        await projectRequest.save();
+        
+        // If approved, create the project
+        if (status === 'Approved') {
+            const newProject = new Project({
+                name: projectRequest.name,
+                description: projectRequest.description,
+                createdBy: projectRequest.requestedBy,
+                members: [{
+                    userId: projectRequest.requestedBy,
+                    role: 'Project Manager'
+                }]
+            });
+            
+            await newProject.save();
+            
+            const populatedProject = await Project.findById(newProject._id)
+                .populate('members.userId', 'username team level role')
+                .populate('createdBy', 'username');
+                
+            return res.json({ 
+                message: 'Project request approved and project created',
+                request: projectRequest,
+                project: populatedProject
+            });
+        }
+        
+        res.json({
+            message: `Project request ${status.toLowerCase()}`,
+            request: projectRequest
+        });
     } catch (error) {
         res.status(400).json({ error: error.message });
     }

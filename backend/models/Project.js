@@ -30,8 +30,9 @@ const projectSchema = new mongoose.Schema({
     },
     description: {
         type: String,
-        required: true,
-        trim: true
+        required: false,
+        trim: true,
+        default: ''
     },
     members: [{
         userId: {
@@ -52,8 +53,7 @@ const projectSchema = new mongoose.Schema({
     requests: [projectRequestSchema],
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true
+        ref: 'User'
     },
     createdAt: {
         type: Date,

@@ -30,6 +30,7 @@ import { useNavigate } from 'react-router-dom';
 const ProjectList = () => {
     const [projects, setProjects] = useState([]);
     const [users, setUsers] = useState([]);
+    const [projectRequests, setProjectRequests] = useState([]);
     const [open, setOpen] = useState(false);
     const [memberDialogOpen, setMemberDialogOpen] = useState(false);
     const [requestDialogOpen, setRequestDialogOpen] = useState(false);
@@ -61,6 +62,14 @@ const ProjectList = () => {
         if (user && (user.role === 'Admin' || user.role === 'Project Manager')) {
             fetchUsers();
         }
+        
+        if (user && user.role === 'Admin') {
+            fetchProjectRequests();
+        }
+        
+        if (user && user.role === 'Project Manager') {
+            fetchMyProjectRequests();
+        }
     }, []);
 
     const fetchProjects = async () => {
@@ -89,6 +98,30 @@ const ProjectList = () => {
             setUsers(response.data);
         } catch (error) {
             console.error('Error fetching users:', error);
+        }
+    };
+
+    const fetchProjectRequests = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await axios.get('http://localhost:5001/api/projects/admin/project-requests', {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            setProjectRequests(response.data);
+        } catch (error) {
+            console.error('Error fetching project requests:', error);
+        }
+    };
+
+    const fetchMyProjectRequests = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await axios.get('http://localhost:5001/api/projects/my-project-requests', {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            setProjectRequests(response.data);
+        } catch (error) {
+            console.error('Error fetching my project requests:', error);
         }
     };
 
@@ -185,10 +218,6 @@ const ProjectList = () => {
                 setErrorMessage('Project name is required');
                 return;
             }
-            if (!formData.description) {
-                setErrorMessage('Project description is required');
-                return;
-            }
             
             const token = localStorage.getItem('token');
             if (selectedProject) {
@@ -201,6 +230,11 @@ const ProjectList = () => {
                 await axios.post('http://localhost:5001/api/projects', formData, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
+                
+                // Refresh project requests for Project Manager
+                if (userRole === 'Project Manager') {
+                    fetchMyProjectRequests();
+                }
             }
             handleClose();
             fetchProjects();
@@ -301,6 +335,24 @@ const ProjectList = () => {
         }
     };
 
+    const handleProjectRequestAction = async (requestId, status) => {
+        try {
+            setRequestsLoading({ ...requestsLoading, [requestId]: true });
+            const token = localStorage.getItem('token');
+            await axios.patch(
+                `http://localhost:5001/api/projects/admin/project-requests/${requestId}`,
+                { status },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            fetchProjectRequests();
+            fetchProjects();
+        } catch (error) {
+            console.error('Error processing project request:', error);
+        } finally {
+            setRequestsLoading({ ...requestsLoading, [requestId]: false });
+        }
+    };
+
     // Helper function to group members by team
     const getMembersByTeam = (members) => {
         return members.reduce((teams, member) => {
@@ -356,14 +408,14 @@ const ProjectList = () => {
                 <Card.Body>
                     <div className="d-flex justify-content-between align-items-center mb-4">
                         <h2 className="m-0">Projects</h2>
-                        {userRole === 'Admin' && (
+                        {(userRole === 'Admin' || userRole === 'Project Manager') && (
                             <Button 
                                 variant="contained" 
                                 color="primary" 
                                 startIcon={<AddIcon />}
                                 onClick={() => handleOpen()}
                             >
-                                Add Project
+                                {userRole === 'Admin' ? 'Add Project' : 'Request Project'}
                             </Button>
                         )}
                     </div>
@@ -375,6 +427,8 @@ const ProjectList = () => {
                     >
                         <Tab label="All Projects" />
                         {userRole === 'Admin' && <Tab label="Pending Requests" />}
+                        {userRole === 'Admin' && <Tab label="Project Requests" />}
+                        {userRole === 'Project Manager' && <Tab label="My Project Requests" />}
                     </Tabs>
 
                     {selectedTab === 0 && (
@@ -543,7 +597,7 @@ const ProjectList = () => {
 
                     {selectedTab === 1 && userRole === 'Admin' && (
                         <>
-                            <h4 className="mb-3">Pending Requests</h4>
+                            <h4 className="mb-3">Pending User Requests</h4>
                             {projects.some(project => project.requests && project.requests.some(request => request.status === 'Pending')) ? (
                                 projects
                                     .filter(project => project.requests && project.requests.some(request => request.status === 'Pending'))
@@ -596,7 +650,85 @@ const ProjectList = () => {
                                         </Card>
                                     ))
                             ) : (
-                                <Alert severity="info">No pending requests found.</Alert>
+                                <Alert severity="info">No pending user requests found.</Alert>
+                            )}
+                        </>
+                    )}
+
+                    {selectedTab === 2 && userRole === 'Admin' && (
+                        <>
+                            <h4 className="mb-3">Pending Project Requests</h4>
+                            {projectRequests.length > 0 ? (
+                                projectRequests
+                                    .filter(request => request.status === 'Pending')
+                                    .map(request => (
+                                        <Card key={request._id} className="mb-3 border">
+                                            <Card.Header className="bg-light">
+                                                <h5>{request.name}</h5>
+                                            </Card.Header>
+                                            <Card.Body>
+                                                <Row>
+                                                    <Col md={8}>
+                                                        <p><strong>Description:</strong> {request.description || 'No description provided.'}</p>
+                                                        <p><strong>Requested By:</strong> {request.requestedBy.username}</p>
+                                                        <p><strong>Date:</strong> {new Date(request.createdAt).toLocaleDateString()}</p>
+                                                    </Col>
+                                                    <Col md={4} className="d-flex justify-content-end align-items-center">
+                                                        <Button
+                                                            variant="contained"
+                                                            color="success"
+                                                            disabled={requestsLoading[request._id]}
+                                                            onClick={() => handleProjectRequestAction(request._id, 'Approved')}
+                                                            className="me-2"
+                                                            size="small"
+                                                        >
+                                                            Approve
+                                                        </Button>
+                                                        <Button
+                                                            variant="contained"
+                                                            color="error"
+                                                            disabled={requestsLoading[request._id]}
+                                                            onClick={() => handleProjectRequestAction(request._id, 'Rejected')}
+                                                            size="small"
+                                                        >
+                                                            Reject
+                                                        </Button>
+                                                    </Col>
+                                                </Row>
+                                            </Card.Body>
+                                        </Card>
+                                    ))
+                            ) : (
+                                <Alert severity="info">No pending project requests found.</Alert>
+                            )}
+                        </>
+                    )}
+
+                    {selectedTab === (userRole === 'Admin' ? 2 : 1) && userRole === 'Project Manager' && (
+                        <>
+                            <h4 className="mb-3">My Project Requests</h4>
+                            {projectRequests.length > 0 ? (
+                                projectRequests.map(request => (
+                                    <Card key={request._id} className="mb-3 border">
+                                        <Card.Header className="bg-light d-flex justify-content-between align-items-center">
+                                            <h5>{request.name}</h5>
+                                            <Badge 
+                                                bg={
+                                                    request.status === 'Approved' ? 'success' : 
+                                                    request.status === 'Rejected' ? 'danger' : 'warning'
+                                                }
+                                            >
+                                                {request.status}
+                                            </Badge>
+                                        </Card.Header>
+                                        <Card.Body>
+                                            <p><strong>Description:</strong> {request.description || 'No description provided.'}</p>
+                                            <p><strong>Date:</strong> {new Date(request.createdAt).toLocaleDateString()}</p>
+                                        </Card.Body>
+                                    </Card>
+                                ))
+                            ) : (
+                                <Alert severity="info">You haven't made any project requests yet.</Alert>
                             )}
                         </>
                     )}
@@ -605,7 +737,10 @@ const ProjectList = () => {
 
             {/* Project Add/Edit Dialog */}
             <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-                <DialogTitle>{selectedProject ? 'Edit Project' : 'Add Project'}</DialogTitle>
+                <DialogTitle>
+                    {selectedProject ? 'Edit Project' : 
+                     userRole === 'Admin' ? 'Add Project' : 'Request Project Creation'}
+                </DialogTitle>
                 <DialogContent>
                     {errorMessage && (
                         <Alert severity="error" className="mb-3">{errorMessage}</Alert>
@@ -633,7 +768,7 @@ const ProjectList = () => {
                 <DialogActions>
                     <Button onClick={handleClose}>Cancel</Button>
                     <Button onClick={handleSubmit} variant="contained" color="primary">
-                        {selectedProject ? 'Update' : 'Create'}
+                        {selectedProject ? 'Update' : userRole === 'Admin' ? 'Create' : 'Submit Request'}
                     </Button>
                 </DialogActions>
             </Dialog>
