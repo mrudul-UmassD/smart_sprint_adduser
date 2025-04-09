@@ -24,19 +24,37 @@ const Dashboard = () => {
     }, []);
 
     const fetchUserDetails = async () => {
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+            setError('Authentication required');
+            setTimeout(() => {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                navigate('/login');
+            }, 2000);
+            return;
+        }
+
         try {
-            const token = localStorage.getItem('token');
             const response = await axios.get('http://localhost:5001/api/users/me', {
-                headers: { Authorization: `Bearer ${token}` },
+                headers: {
+                    'x-auth-token': token
+                }
             });
             setUserDetails(response.data);
-        } catch (error) {
-            console.error('Error fetching user details:', error);
-            setError('Error loading user details. Please try again later.');
-            // Wait a moment before redirecting to login
-            setTimeout(() => {
-                navigate('/login');
-            }, 3000);
+        } catch (err) {
+            const errorMsg = err.response?.data?.error || 'Failed to fetch user details';
+            setError(errorMsg);
+            
+            // If we get an authentication error, clear token and redirect to login
+            if (err.response?.status === 401 || errorMsg.toLowerCase().includes('auth') || errorMsg.toLowerCase().includes('token')) {
+                setTimeout(() => {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    navigate('/login');
+                }, 2000);
+            }
         }
     };
 

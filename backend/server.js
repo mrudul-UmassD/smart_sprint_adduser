@@ -17,10 +17,12 @@ app.use(express.json());
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const projectRoutes = require('./routes/projects');
+const taskRoutes = require('./routes/tasks');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/projects', projectRoutes);
+app.use('/api/tasks', taskRoutes);
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI)

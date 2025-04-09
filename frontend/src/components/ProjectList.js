@@ -26,6 +26,7 @@ import {
 } from '@mui/icons-material';
 import { Container, Row, Col, Card, Badge, ListGroup, Form } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
+import TaskList from './TaskList';
 
 const ProjectList = () => {
     const [projects, setProjects] = useState([]);
@@ -665,6 +666,11 @@ const ProjectList = () => {
                                                         </Col>
                                                     )}
                                                 </Row>
+                                                
+                                                {/* Task List Section */}
+                                                <div className="mt-4">
+                                                    <TaskList projectId={project._id} />
+                                                </div>
                                             </Card.Body>
                                         )}
                                     </Card>

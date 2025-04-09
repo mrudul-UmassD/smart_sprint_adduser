@@ -1,195 +1,115 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import {
-    AppBar,
-    Toolbar,
-    Typography,
-    Button,
-    Box,
-    Drawer,
-    List,
-    ListItem,
-    ListItemText,
-    IconButton,
-    useMediaQuery,
-    useTheme,
-    Divider,
-    ListItemIcon,
-} from '@mui/material';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Navbar, Nav, Container, Button } from 'react-bootstrap';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import Box from '@mui/material/Box';
+import Drawer from '@mui/material/Drawer';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemText from '@mui/material/ListItemText';
+import IconButton from '@mui/material/IconButton';
 import MenuIcon from '@mui/icons-material/Menu';
-import DashboardIcon from '@mui/icons-material/Dashboard';
-import PeopleIcon from '@mui/icons-material/People';
-import LogoutIcon from '@mui/icons-material/Logout';
-import FolderIcon from '@mui/icons-material/Folder';
-import { Navbar, Nav, Container } from 'react-bootstrap';
 
 const Navigation = () => {
-    const [user, setUser] = useState(null);
-    const [drawerOpen, setDrawerOpen] = useState(false);
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-    const navigate = useNavigate();
-    const location = useLocation();
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const navigate = useNavigate();
+  
+  const token = localStorage.getItem('token');
+  const role = localStorage.getItem('role');
+  
+  const toggleDrawer = (open) => (event) => {
+    if (event?.type === 'keydown' && (event?.key === 'Tab' || event?.key === 'Shift')) {
+      return;
+    }
+    setIsDrawerOpen(open);
+  };
 
-    useEffect(() => {
-        const userStr = localStorage.getItem('user');
-        if (userStr) {
-            setUser(JSON.parse(userStr));
-        }
-    }, []);
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('role');
+    navigate('/login');
+  };
 
-    const handleLogout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        navigate('/login');
-    };
+  const drawer = (
+    <Box
+      sx={{ width: 250 }}
+      role="presentation"
+      onClick={toggleDrawer(false)}
+      onKeyDown={toggleDrawer(false)}
+    >
+      <List>
+        <ListItem component={Link} to="/dashboard">
+          <ListItemText primary="Dashboard" />
+        </ListItem>
+        {(role === 'admin' || role === 'pm') && (
+          <ListItem component={Link} to="/users">
+            <ListItemText primary="Manage Users" />
+          </ListItem>
+        )}
+        <ListItem button onClick={handleLogout}>
+          <ListItemText primary="Logout" />
+        </ListItem>
+      </List>
+    </Box>
+  );
 
-    const toggleDrawer = (open) => (event) => {
-        if (
-            event.type === 'keydown' &&
-            (event.key === 'Tab' || event.key === 'Shift')
-        ) {
-            return;
-        }
-        setDrawerOpen(open);
-    };
-
-    const navItems = [
-        { 
-            label: 'Dashboard', 
-            path: '/dashboard', 
-            visible: true,
-            icon: <DashboardIcon />
-        },
-        {
-            label: 'Projects',
-            path: '/projects',
-            visible: true,
-            icon: <FolderIcon />
-        },
-        {
-            label: 'Users',
-            path: '/users',
-            visible: user && (user.role === 'Admin' || user.role === 'Project Manager'),
-            icon: <PeopleIcon />
-        },
-    ];
-
-    const filteredNavItems = navItems.filter((item) => item.visible);
-
-    const renderDrawerContent = () => (
-        <Box
-            sx={{ width: 250 }}
-            role="presentation"
-            onClick={toggleDrawer(false)}
-            onKeyDown={toggleDrawer(false)}
-        >
-            <Box sx={{ p: 2, textAlign: 'center' }}>
-                <Typography variant="h6" className="fw-bold">Smart Sprint</Typography>
-                {user && (
-                    <Typography variant="body2" color="textSecondary">
-                        Logged in as: <strong>{user.username}</strong>
-                    </Typography>
-                )}
-            </Box>
-            <Divider />
-            <List>
-                {filteredNavItems.map((item) => (
-                    <ListItem 
-                        button 
-                        component={Link} 
-                        to={item.path} 
-                        key={item.path}
-                        selected={location.pathname === item.path}
-                        sx={{
-                            backgroundColor: location.pathname === item.path ? 'rgba(25, 118, 210, 0.08)' : 'transparent',
-                        }}
-                    >
-                        <ListItemIcon>{item.icon}</ListItemIcon>
-                        <ListItemText primary={item.label} />
-                    </ListItem>
-                ))}
-                <Divider sx={{ my: 1 }} />
-                <ListItem button onClick={handleLogout}>
-                    <ListItemIcon><LogoutIcon /></ListItemIcon>
-                    <ListItemText primary="Logout" />
-                </ListItem>
-            </List>
-        </Box>
-    );
-
-    if (!user) return null;
-
-    return (
+  return (
+    <>
+      {token ? (
         <>
-            <AppBar position="static" className="shadow-sm mb-3">
-                <Container>
-                    <Toolbar disableGutters>
-                        {isMobile && (
-                            <IconButton
-                                edge="start"
-                                color="inherit"
-                                aria-label="menu"
-                                onClick={toggleDrawer(true)}
-                                sx={{ mr: 2 }}
-                            >
-                                <MenuIcon />
-                            </IconButton>
-                        )}
-                        
-                        <Typography 
-                            variant="h6" 
-                            component={Link} 
-                            to="/dashboard"
-                            sx={{ 
-                                flexGrow: 1, 
-                                ml: 2,
-                                textDecoration: 'none',
-                                color: 'white',
-                                fontWeight: 'bold' 
-                            }}
-                        >
-                            Smart Sprint
-                        </Typography>
-                        
-                        {!isMobile && (
-                            <Box sx={{ display: 'flex' }}>
-                                {filteredNavItems.map((item) => (
-                                    <Button
-                                        color="inherit"
-                                        component={Link}
-                                        to={item.path}
-                                        key={item.path}
-                                        sx={{ 
-                                            mx: 0.5,
-                                            borderBottom: location.pathname === item.path ? '2px solid white' : 'none',
-                                            borderRadius: 0,
-                                            pb: 0.5
-                                        }}
-                                        startIcon={item.icon}
-                                    >
-                                        {item.label}
-                                    </Button>
-                                ))}
-                                <Button
-                                    color="inherit"
-                                    onClick={handleLogout}
-                                    sx={{ ml: 2 }}
-                                    startIcon={<LogoutIcon />}
-                                >
-                                    Logout
-                                </Button>
-                            </Box>
-                        )}
-                    </Toolbar>
-                </Container>
-            </AppBar>
-            
-            <Drawer anchor="left" open={drawerOpen} onClose={toggleDrawer(false)}>
-                {renderDrawerContent()}
-            </Drawer>
+          {isMobile ? (
+            <Navbar bg="primary" variant="dark" expand="lg">
+              <Container>
+                <Navbar.Brand as={Link} to="/dashboard">Smart Sprint</Navbar.Brand>
+                <IconButton
+                  size="large"
+                  edge="end"
+                  color="inherit"
+                  aria-label="menu"
+                  onClick={toggleDrawer(true)}
+                  sx={{ color: 'white' }}
+                >
+                  <MenuIcon />
+                </IconButton>
+                <Drawer
+                  anchor="right"
+                  open={isDrawerOpen}
+                  onClose={toggleDrawer(false)}
+                >
+                  {drawer}
+                </Drawer>
+              </Container>
+            </Navbar>
+          ) : (
+            <Navbar bg="primary" variant="dark" expand="lg">
+              <Container>
+                <Navbar.Brand as={Link} to="/dashboard">Smart Sprint</Navbar.Brand>
+                <Navbar.Toggle aria-controls="basic-navbar-nav" />
+                <Navbar.Collapse id="basic-navbar-nav" className="justify-content-end">
+                  <Nav>
+                    <Nav.Link as={Link} to="/dashboard">Dashboard</Nav.Link>
+                    {(role === 'admin' || role === 'pm') && (
+                      <Nav.Link as={Link} to="/users">Manage Users</Nav.Link>
+                    )}
+                    <Button 
+                      variant="outline-light" 
+                      onClick={handleLogout}
+                      className="ms-2"
+                    >
+                      Logout
+                    </Button>
+                  </Nav>
+                </Navbar.Collapse>
+              </Container>
+            </Navbar>
+          )}
         </>
-    );
+      ) : null}
+    </>
+  );
 };
 
 export default Navigation; 

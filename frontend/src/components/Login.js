@@ -56,7 +56,7 @@ const Login = () => {
                                 </Alert>
                             )}
                             
-                            <Box component="form" onSubmit={handleSubmit}>
+                            <Box component="form" onSubmit={handleSubmit} noValidate>
                                 <TextField
                                     margin="normal"
                                     required

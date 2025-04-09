@@ -1,0 +1,230 @@
+/* Global Styles */
+:root {
+  --primary-color: #3f51b5;
+  --secondary-color: #f50057;
+  --light-bg: #f8f9fa;
+  --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --border-radius: 0.375rem;
+}
+
+body {
+  background-color: #f5f5f5;
+  font-family: 'Roboto', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Card Styles */
+.card {
+  border-radius: var(--border-radius);
+  box-shadow: var(--card-shadow);
+  border: none;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.card-header {
+  border-top-left-radius: var(--border-radius) !important;
+  border-top-right-radius: var(--border-radius) !important;
+}
+
+/* Navigation and Header */
+.navbar {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.navbar-brand {
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+/* Task Cards */
+.task-card {
+  margin-bottom: 1rem;
+}
+
+.task-card .card-header {
+  padding: 0.75rem;
+}
+
+.task-card .badge {
+  font-weight: 500;
+  padding: 0.35em 0.65em;
+}
+
+.assignee-info {
+  padding: 0.5rem;
+}
+
+/* Buttons */
+.btn-primary {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.btn-primary:hover {
+  background-color: #303f9f;
+  border-color: #303f9f;
+}
+
+.btn-secondary {
+  background-color: var(--secondary-color);
+  border-color: var(--secondary-color);
+}
+
+.btn-outline-primary {
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.btn-outline-primary:hover {
+  background-color: var(--primary-color);
+}
+
+/* Form Controls */
+.form-control:focus, .form-select:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 0.25rem rgba(63, 81, 181, 0.25);
+}
+
+/* Tabs */
+.nav-tabs .nav-link {
+  color: #495057;
+  font-weight: 500;
+}
+
+.nav-tabs .nav-link.active {
+  color: var(--primary-color);
+  border-bottom: 2px solid var(--primary-color);
+}
+
+/* Badges */
+.badge {
+  font-weight: 500;
+  padding: 0.35em 0.65em;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.fade-in {
+  animation: fadeIn 0.5s;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .card-body {
+    padding: 1rem;
+  }
+  
+  .container {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+  
+  .row {
+    margin-left: -0.5rem;
+    margin-right: -0.5rem;
+  }
+  
+  .col, .col-md-6, .col-lg-4 {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+}
+
+/* Login Screen */
+.login-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  background-color: var(--light-bg);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 450px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.login-logo {
+  width: 80px;
+  height: 80px;
+  margin-bottom: 1.5rem;
+}
+
+/* Dashboard Elements */
+.stat-card {
+  text-align: center;
+  padding: 1.5rem;
+  border-radius: var(--border-radius);
+}
+
+.stat-icon {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+  color: var(--primary-color);
+}
+
+/* User List */
+.user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #e0e0e0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: #757575;
+  margin-right: 0.75rem;
+}
+
+/* Project List */
+.project-description {
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+.team-badge {
+  margin-right: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Task Status Colors */
+.status-todo { color: #6c757d; }
+.status-in-progress { color: #007bff; }
+.status-review { color: #17a2b8; }
+.status-needs-work { color: #ffc107; }
+.status-completed { color: #28a745; }
+
+/* Priority Colors */
+.priority-low { color: #17a2b8; }
+.priority-medium { color: #6c757d; }
+.priority-high { color: #ffc107; }
+.priority-critical { color: #dc3545; }
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+} 

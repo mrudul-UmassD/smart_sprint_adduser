@@ -79,54 +79,50 @@ const UserList = () => {
     };
 
     const handleRoleChange = (e) => {
-        const role = e.target.value;
-        if (role === 'Admin') {
+        const selectedRole = e.target.value;
+        
+        if (selectedRole === 'Admin' || selectedRole === 'Project Manager') {
             setFormData({
                 ...formData,
-                role: role,
-                team: 'admin',
-                level: 'admin'
-            });
-        } else if (role === 'Project Manager') {
-            setFormData({
-                ...formData,
-                role: role,
-                team: 'pm',
-                level: 'pm'
+                role: selectedRole,
+                team: selectedRole === 'Admin' ? 'admin' : 'pm',
+                level: selectedRole === 'Admin' ? 'admin' : 'pm'
             });
         } else {
             setFormData({
                 ...formData,
-                role: role,
-                // Keep existing team and level for Developer role
+                role: selectedRole
             });
         }
     };
 
-    const handleSubmit = async () => {
+    const handleSubmit = async (e) => {
+        e.preventDefault();
         try {
-            // Validation
-            if (!formData.username) {
-                setErrorMessage('Username is required');
+            // Check if required fields are filled
+            if (!formData.username || !formData.role) {
+                setError('Username and Role are required fields');
                 return;
             }
-            if (!formData.role) {
-                setErrorMessage('Role is required');
-                return;
+
+            // For regular users, ensure team and level are selected
+            if (formData.role !== 'Admin' && formData.role !== 'Project Manager') {
+                if (!formData.team || !formData.level) {
+                    setError('Team and Level are required for regular users');
+                    return;
+                }
             }
-            
+
             const token = localStorage.getItem('token');
-            if (selectedUser) {
-                await axios.patch(
-                    `http://localhost:5001/api/users/${selectedUser._id}`,
-                    formData,
-                    { headers: { Authorization: `Bearer ${token}` } }
-                );
-            } else {
-                await axios.post('http://localhost:5001/api/users', formData, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-            }
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/api/users/${formData.id || ''}`, {
+                method: formData.id ? 'PUT' : 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(formData)
+            });
+
             handleClose();
             fetchUsers();
         } catch (error) {
