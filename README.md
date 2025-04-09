@@ -63,15 +63,19 @@ smart-sprint/
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/smart-sprint.git
+   git clone https://github.com/mrudul-UmassD/smart_sprint_adduser.git
    cd smart-sprint
    ```
 
-2. Install backend dependencies:
+2. Install all dependencies with a single command:
    ```
-   cd backend
-   npm install
+   npm run install-all
    ```
+   
+   This will install dependencies for:
+   - Root project (for running both servers)
+   - Backend server
+   - Frontend application
 
 3. Set up environment variables:
    Create a `.env` file in the `backend` directory with:
@@ -83,16 +87,27 @@ smart-sprint/
 
 4. Initialize the database:
    ```
+   cd backend
    npm run init-db
-   ```
-
-5. Install frontend dependencies:
-   ```
-   cd ../frontend
-   npm install
+   cd ..
    ```
 
 ### Running the Application
+
+#### Single Command Method
+
+Run both the backend and frontend servers with a single command:
+```
+npm start
+```
+
+This will concurrently start:
+- Backend server on http://localhost:5001
+- Frontend application on http://localhost:3000
+
+#### Separate Servers Method
+
+If you prefer to run the servers separately:
 
 1. Start the backend server:
    ```
@@ -100,7 +115,7 @@ smart-sprint/
    npm run dev
    ```
 
-2. Start the frontend application:
+2. In a separate terminal, start the frontend application:
    ```
    cd frontend
    npm start
