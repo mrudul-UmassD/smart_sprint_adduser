@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import { Container, Row, Col, Card, Badge } from 'react-bootstrap';
 import { Person, Work, EmojiEvents, Group } from '@mui/icons-material';
+import API_CONFIG from '../config';
 
 const Dashboard = () => {
     const [userDetails, setUserDetails] = useState(null);
@@ -37,7 +38,7 @@ const Dashboard = () => {
         }
 
         try {
-            const response = await axios.get('http://localhost:5001/api/users/me', {
+            const response = await axios.get(`${API_CONFIG.BASE_URL}${API_CONFIG.USERS_ENDPOINT}/me`, {
                 headers: {
                     'x-auth-token': token
                 }

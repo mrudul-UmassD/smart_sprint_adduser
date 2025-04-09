@@ -11,6 +11,7 @@ import {
     Alert,
 } from '@mui/material';
 import { Card, Row, Col, Image } from 'react-bootstrap';
+import API_CONFIG from '../config';
 
 const Login = () => {
     const [username, setUsername] = useState('');
@@ -20,7 +21,7 @@ const Login = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            const response = await axios.post('http://localhost:5001/api/auth/login', { username });
+            const response = await axios.post(`${API_CONFIG.BASE_URL}${API_CONFIG.AUTH_ENDPOINT}/login`, { username });
             localStorage.setItem('token', response.data.token);
             localStorage.setItem('user', JSON.stringify(response.data.user));
             navigate('/dashboard');

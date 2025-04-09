@@ -18,9 +18,16 @@ import {
     TextField,
     MenuItem,
     Alert,
+    FormControl,
+    InputLabel,
+    Select,
+    IconButton,
+    FormHelperText,
 } from '@mui/material';
+import { Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { Container, Row, Col, Card, Badge } from 'react-bootstrap';
+import API_CONFIG from '../config';
 
 const UserList = () => {
     const [users, setUsers] = useState([]);
@@ -41,7 +48,7 @@ const UserList = () => {
     const fetchUsers = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.get('http://localhost:5001/api/users', {
+            const response = await axios.get(`${API_CONFIG.BASE_URL}${API_CONFIG.USERS_ENDPOINT}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             setUsers(response.data);
@@ -101,27 +108,29 @@ const UserList = () => {
         try {
             // Check if required fields are filled
             if (!formData.username || !formData.role) {
-                setError('Username and Role are required fields');
+                setErrorMessage('Username and Role are required fields');
                 return;
             }
 
             // For regular users, ensure team and level are selected
             if (formData.role !== 'Admin' && formData.role !== 'Project Manager') {
                 if (!formData.team || !formData.level) {
-                    setError('Team and Level are required for regular users');
+                    setErrorMessage('Team and Level are required for regular users');
                     return;
                 }
             }
 
             const token = localStorage.getItem('token');
-            const response = await fetch(`${process.env.REACT_APP_API_URL}/api/users/${formData.id || ''}`, {
-                method: formData.id ? 'PUT' : 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(formData)
-            });
+            
+            if (selectedUser) {
+                await axios.put(`${API_CONFIG.BASE_URL}${API_CONFIG.USERS_ENDPOINT}/${selectedUser._id}`, formData, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+            } else {
+                await axios.post(`${API_CONFIG.BASE_URL}${API_CONFIG.USERS_ENDPOINT}`, formData, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+            }
 
             handleClose();
             fetchUsers();
@@ -134,7 +143,7 @@ const UserList = () => {
     const handleDelete = async (userId) => {
         try {
             const token = localStorage.getItem('token');
-            await axios.delete(`http://localhost:5001/api/users/${userId}`, {
+            await axios.delete(`${API_CONFIG.BASE_URL}${API_CONFIG.USERS_ENDPOINT}/${userId}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             fetchUsers();

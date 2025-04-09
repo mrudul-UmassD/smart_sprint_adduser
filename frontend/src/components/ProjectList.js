@@ -27,6 +27,7 @@ import {
 import { Container, Row, Col, Card, Badge, ListGroup, Form } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import TaskList from './TaskList';
+import API_CONFIG from '../config';
 
 const ProjectList = () => {
     const [projects, setProjects] = useState([]);
@@ -76,7 +77,7 @@ const ProjectList = () => {
     const fetchProjects = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.get('http://localhost:5001/api/projects', {
+            const response = await axios.get(`${API_CONFIG.BASE_URL}${API_CONFIG.PROJECTS_ENDPOINT}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             setProjects(response.data);
@@ -93,7 +94,7 @@ const ProjectList = () => {
     const fetchUsers = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.get('http://localhost:5001/api/users', {
+            const response = await axios.get(`${API_CONFIG.BASE_URL}${API_CONFIG.USERS_ENDPOINT}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             setUsers(response.data);
@@ -105,7 +106,7 @@ const ProjectList = () => {
     const fetchProjectRequests = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.get('http://localhost:5001/api/projects/admin/project-requests', {
+            const response = await axios.get(`${API_CONFIG.BASE_URL}${API_CONFIG.PROJECTS_ENDPOINT}/admin/project-requests`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             setProjectRequests(response.data);
@@ -117,7 +118,7 @@ const ProjectList = () => {
     const fetchMyProjectRequests = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.get('http://localhost:5001/api/projects/my-project-requests', {
+            const response = await axios.get(`${API_CONFIG.BASE_URL}${API_CONFIG.PROJECTS_ENDPOINT}/my-project-requests`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             setProjectRequests(response.data);
@@ -223,12 +224,12 @@ const ProjectList = () => {
             const token = localStorage.getItem('token');
             if (selectedProject) {
                 await axios.patch(
-                    `http://localhost:5001/api/projects/${selectedProject._id}`,
+                    `${API_CONFIG.BASE_URL}${API_CONFIG.PROJECTS_ENDPOINT}/${selectedProject._id}`,
                     formData,
                     { headers: { Authorization: `Bearer ${token}` } }
                 );
             } else {
-                await axios.post('http://localhost:5001/api/projects', formData, {
+                await axios.post(`${API_CONFIG.BASE_URL}${API_CONFIG.PROJECTS_ENDPOINT}`, formData, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 
@@ -248,7 +249,7 @@ const ProjectList = () => {
     const handleDelete = async (projectId) => {
         try {
             const token = localStorage.getItem('token');
-            await axios.delete(`http://localhost:5001/api/projects/${projectId}`, {
+            await axios.delete(`${API_CONFIG.BASE_URL}${API_CONFIG.PROJECTS_ENDPOINT}/${projectId}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             fetchProjects();
@@ -271,7 +272,7 @@ const ProjectList = () => {
             
             const token = localStorage.getItem('token');
             await axios.post(
-                `http://localhost:5001/api/projects/${selectedProject._id}/members`,
+                `${API_CONFIG.BASE_URL}${API_CONFIG.PROJECTS_ENDPOINT}/${selectedProject._id}/members`,
                 memberData,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -287,7 +288,7 @@ const ProjectList = () => {
     const handleRemoveMember = async (projectId, userId) => {
         try {
             const token = localStorage.getItem('token');
-            await axios.delete(`http://localhost:5001/api/projects/${projectId}/members/${userId}`, {
+            await axios.delete(`${API_CONFIG.BASE_URL}${API_CONFIG.PROJECTS_ENDPOINT}/${projectId}/members/${userId}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             fetchProjects();
@@ -306,7 +307,7 @@ const ProjectList = () => {
             
             const token = localStorage.getItem('token');
             await axios.post(
-                `http://localhost:5001/api/projects/${selectedProject._id}/requests`,
+                `${API_CONFIG.BASE_URL}${API_CONFIG.PROJECTS_ENDPOINT}/${selectedProject._id}/requests`,
                 requestData,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -324,7 +325,7 @@ const ProjectList = () => {
             setRequestsLoading({ ...requestsLoading, [requestId]: true });
             const token = localStorage.getItem('token');
             await axios.patch(
-                `http://localhost:5001/api/projects/${projectId}/requests/${requestId}`,
+                `${API_CONFIG.BASE_URL}${API_CONFIG.PROJECTS_ENDPOINT}/${projectId}/requests/${requestId}`,
                 { status },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -341,7 +342,7 @@ const ProjectList = () => {
             setRequestsLoading({ ...requestsLoading, [requestId]: true });
             const token = localStorage.getItem('token');
             await axios.patch(
-                `http://localhost:5001/api/projects/admin/project-requests/${requestId}`,
+                `${API_CONFIG.BASE_URL}${API_CONFIG.PROJECTS_ENDPOINT}/admin/project-requests/${requestId}`,
                 { status },
                 { headers: { Authorization: `Bearer ${token}` } }
             );

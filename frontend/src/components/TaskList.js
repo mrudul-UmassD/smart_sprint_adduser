@@ -24,6 +24,7 @@ import {
   Attachment as AttachmentIcon
 } from '@mui/icons-material';
 import { Container, Row, Col, Card, Badge, Alert, Form, Tab, Tabs } from 'react-bootstrap';
+import API_CONFIG from '../config';
 
 const TaskList = ({ projectId }) => {
   const [tasks, setTasks] = useState([]);
@@ -63,7 +64,7 @@ const TaskList = ({ projectId }) => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await axios.get(`http://localhost:5001/api/tasks/project/${projectId}`, {
+      const response = await axios.get(`${API_CONFIG.BASE_URL}${API_CONFIG.TASKS_ENDPOINT}/project/${projectId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setTasks(response.data);
@@ -84,7 +85,7 @@ const TaskList = ({ projectId }) => {
   const fetchCompletedTasks = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`http://localhost:5001/api/tasks/project/${projectId}/completed`, {
+      const response = await axios.get(`${API_CONFIG.BASE_URL}${API_CONFIG.TASKS_ENDPOINT}/project/${projectId}/completed`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setCompletedTasks(response.data);
@@ -96,7 +97,7 @@ const TaskList = ({ projectId }) => {
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5001/api/users', {
+      const response = await axios.get(`${API_CONFIG.BASE_URL}${API_CONFIG.USERS_ENDPOINT}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setUsers(response.data);
@@ -166,11 +167,11 @@ const TaskList = ({ projectId }) => {
       };
 
       if (selectedTask) {
-        await axios.patch(`http://localhost:5001/api/tasks/${selectedTask._id}`, data, {
+        await axios.patch(`${API_CONFIG.BASE_URL}${API_CONFIG.TASKS_ENDPOINT}/${selectedTask._id}`, data, {
           headers: { Authorization: `Bearer ${token}` },
         });
       } else {
-        await axios.post('http://localhost:5001/api/tasks', data, {
+        await axios.post(`${API_CONFIG.BASE_URL}${API_CONFIG.TASKS_ENDPOINT}`, data, {
           headers: { Authorization: `Bearer ${token}` },
         });
       }
@@ -188,7 +189,7 @@ const TaskList = ({ projectId }) => {
     if (window.confirm('Are you sure you want to delete this task?')) {
       try {
         const token = localStorage.getItem('token');
-        await axios.delete(`http://localhost:5001/api/tasks/${taskId}`, {
+        await axios.delete(`${API_CONFIG.BASE_URL}${API_CONFIG.TASKS_ENDPOINT}/${taskId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         fetchTasks();
@@ -203,7 +204,7 @@ const TaskList = ({ projectId }) => {
   const handleStatusChange = async (taskId, status) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.patch(`http://localhost:5001/api/tasks/${taskId}`, { status }, {
+      await axios.patch(`${API_CONFIG.BASE_URL}${API_CONFIG.TASKS_ENDPOINT}/${taskId}`, { status }, {
         headers: { Authorization: `Bearer ${token}` },
       });
       fetchTasks();
