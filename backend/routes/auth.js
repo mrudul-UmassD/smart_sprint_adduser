@@ -3,20 +3,27 @@ const router = express.Router();
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
+const auth = require('../middleware/auth');
 
 // Login route
 router.post('/login', async (req, res) => {
     try {
-        const { username } = req.body;
+        const { username, password } = req.body;
         
-        if (!username) {
-            return res.status(400).json({ error: 'Username is required' });
+        if (!username || !password) {
+            return res.status(400).json({ error: 'Username and password are required' });
         }
 
         const user = await User.findOne({ username });
         
         if (!user) {
-            return res.status(401).json({ error: 'Invalid username' });
+            return res.status(401).json({ error: 'Invalid username or password' });
+        }
+
+        // Check password
+        const isMatch = await user.comparePassword(password);
+        if (!isMatch) {
+            return res.status(401).json({ error: 'Invalid username or password' });
         }
 
         const token = jwt.sign(
@@ -25,7 +32,84 @@ router.post('/login', async (req, res) => {
             { expiresIn: '24h' }
         );
 
-        res.json({ user, token });
+        res.json({ 
+            user: {
+                _id: user._id,
+                username: user.username,
+                role: user.role,
+                team: user.team,
+                level: user.level,
+                isFirstLogin: user.isFirstLogin,
+                profilePicture: user.profilePicture,
+                fullName: user.fullName,
+                email: user.email,
+                createdAt: user.createdAt
+            }, 
+            token 
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Change password route (requires authentication)
+router.post('/change-password', auth, async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ error: 'Current password and new password are required' });
+        }
+
+        const user = await User.findById(req.user._id);
+        
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        // Verify current password
+        const isMatch = await user.comparePassword(currentPassword);
+        if (!isMatch) {
+            return res.status(401).json({ error: 'Current password is incorrect' });
+        }
+
+        // Update password
+        user.password = newPassword;
+        user.isFirstLogin = false;
+        await user.save();
+
+        res.status(200).json({ message: 'Password updated successfully' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// First-time password setup route (requires authentication)
+router.post('/first-password', auth, async (req, res) => {
+    try {
+        const { newPassword } = req.body;
+        
+        if (!newPassword) {
+            return res.status(400).json({ error: 'New password is required' });
+        }
+
+        const user = await User.findById(req.user._id);
+        
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        // Check if it's actually first login
+        if (!user.isFirstLogin) {
+            return res.status(400).json({ error: 'This is not your first login. Use the change password route instead.' });
+        }
+
+        // Update password
+        user.password = newPassword;
+        user.isFirstLogin = false;
+        await user.save();
+
+        res.status(200).json({ message: 'Password set successfully' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -41,9 +125,11 @@ router.post('/reset-db', async (req, res) => {
             // If no admin user exists, create one
             const admin = new User({
                 username: 'admin',
+                password: 'admin', // Default password for admin
                 role: 'Admin',
                 team: 'admin',
-                level: 'admin'
+                level: 'admin',
+                isFirstLogin: false // Admin doesn't need to reset password
             });
             await admin.save();
         } else {

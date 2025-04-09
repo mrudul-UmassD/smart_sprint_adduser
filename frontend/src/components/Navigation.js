@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Navbar, Nav, Container, Button, NavDropdown } from 'react-bootstrap';
+import { Navbar, Nav, Container, Button, Offcanvas, NavDropdown, Image, Badge, Dropdown, ListGroup } from 'react-bootstrap';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import Box from '@mui/material/Box';
@@ -12,9 +12,19 @@ import IconButton from '@mui/material/IconButton';
 import MenuIcon from '@mui/icons-material/Menu';
 import axios from 'axios';
 import API_CONFIG from '../config';
+import { 
+    Dashboard as DashboardIcon, 
+    People as PeopleIcon, 
+    Assignment as AssignmentIcon, 
+    ViewKanban as ViewKanbanIcon, 
+    Person as PersonIcon, 
+    ExitToApp as ExitToAppIcon,
+    Settings as SettingsIcon
+} from '@mui/icons-material';
 
 const Navigation = () => {
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [user, setUser] = useState(null);
   const [projects, setProjects] = useState([]);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -23,8 +33,7 @@ const Navigation = () => {
   // Get user info from localStorage
   const token = localStorage.getItem('token');
   const userStr = localStorage.getItem('user');
-  const user = userStr ? JSON.parse(userStr) : null;
-  const userRole = user ? user.role : '';
+  const userRole = userStr ? JSON.parse(userStr).role : '';
   
   // Fetch projects on component mount
   useEffect(() => {
@@ -32,6 +41,14 @@ const Navigation = () => {
       fetchProjects();
     }
   }, [token]);
+  
+  useEffect(() => {
+    // Get user from localStorage
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+  }, []);
   
   const fetchProjects = async () => {
     try {
@@ -42,30 +59,40 @@ const Navigation = () => {
     }
   };
   
-  const toggleDrawer = (open) => (event) => {
-    if (event?.type === 'keydown' && (event?.key === 'Tab' || event?.key === 'Shift')) {
-      return;
-    }
-    setIsDrawerOpen(open);
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen);
   };
 
   const handleLogout = () => {
+    // Clear all auth data
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    // Delete Authorization header
+    delete axios.defaults.headers.common['Authorization'];
+    delete axios.defaults.headers.common['x-auth-token'];
+    // Redirect to login page
     navigate('/login');
   };
 
+  // Only show certain items based on role
   const isAdmin = userRole === 'Admin';
-  const isPM = userRole === 'Project Manager';
-  const isAdminOrPM = isAdmin || isPM;
+  const isProjectManager = userRole === 'Project Manager';
+  const canManageUsers = isAdmin || isProjectManager;
+
+  const getProfileImage = () => {
+    if (user?.profilePicture) {
+      return `${API_CONFIG.BASE_URL}${user.profilePicture}`;
+    }
+    return null;
+  };
 
   // Drawer content for mobile view
   const drawer = (
     <Box
       sx={{ width: 250 }}
       role="presentation"
-      onClick={toggleDrawer(false)}
-      onKeyDown={toggleDrawer(false)}
+      onClick={handleDrawerToggle}
+      onKeyDown={handleDrawerToggle}
     >
       <List>
         <ListItem component={Link} to="/dashboard">
@@ -76,7 +103,7 @@ const Navigation = () => {
           <ListItemText primary="Projects" />
         </ListItem>
         
-        {isAdminOrPM && (
+        {canManageUsers && (
           <ListItem component={Link} to="/users">
             <ListItemText primary="Users" />
           </ListItem>
@@ -106,74 +133,200 @@ const Navigation = () => {
 
   return (
     <>
-      {token ? (
-        <>
-          {isMobile ? (
-            <Navbar bg="primary" variant="dark" expand="lg">
-              <Container>
-                <Navbar.Brand as={Link} to="/dashboard">Smart Sprint</Navbar.Brand>
-                <IconButton
-                  size="large"
-                  edge="end"
-                  color="inherit"
-                  aria-label="menu"
-                  onClick={toggleDrawer(true)}
-                  sx={{ color: 'white' }}
+      {/* Top Navbar */}
+      <Navbar bg="primary" variant="dark" expand="lg" className="mb-3">
+        <Container fluid>
+          <Navbar.Brand as={Link} to="/dashboard" className="d-flex align-items-center">
+            <img
+              src="/logo.png" 
+              width="30"
+              height="30"
+              className="d-inline-block align-top me-2"
+              alt="Smart Sprint Logo"
+            />
+            Smart Sprint
+          </Navbar.Brand>
+          
+          {/* Mobile menu toggle */}
+          <Button 
+            variant="outline-light" 
+            className="d-lg-none" 
+            onClick={handleDrawerToggle}
+          >
+            <MenuIcon />
+          </Button>
+          
+          {/* Desktop navigation */}
+          <Navbar.Collapse className="d-none d-lg-flex">
+            <Nav className="me-auto">
+              <Nav.Link as={Link} to="/dashboard">
+                <DashboardIcon fontSize="small" className="me-1" /> Dashboard
+              </Nav.Link>
+              
+              {canManageUsers && (
+                <Nav.Link as={Link} to="/users">
+                  <PeopleIcon fontSize="small" className="me-1" /> Users
+                </Nav.Link>
+              )}
+              
+              <Nav.Link as={Link} to="/projects">
+                <AssignmentIcon fontSize="small" className="me-1" /> Projects
+              </Nav.Link>
+              
+              <Nav.Link as={Link} to="/kanban">
+                <ViewKanbanIcon fontSize="small" className="me-1" /> Kanban
+              </Nav.Link>
+            </Nav>
+            
+            {/* User profile dropdown */}
+            <Dropdown align="end">
+              <Dropdown.Toggle 
+                as="div" 
+                id="user-dropdown" 
+                className="d-flex align-items-center text-white custom-dropdown"
+                style={{ cursor: 'pointer' }}
+              >
+                {user?.profilePicture ? (
+                  <Image 
+                    src={getProfileImage()}
+                    width="32"
+                    height="32"
+                    roundedCircle
+                    className="me-2 border border-light"
+                  />
+                ) : (
+                  <div className="avatar-placeholder me-2 bg-secondary rounded-circle d-flex align-items-center justify-content-center" style={{ width: '32px', height: '32px' }}>
+                    <PersonIcon fontSize="small" />
+                  </div>
+                )}
+                <span>{user?.username}</span>
+                <Badge 
+                  bg={user?.role === 'Admin' ? 'danger' : user?.role === 'Project Manager' ? 'warning' : 'info'} 
+                  className="ms-2"
                 >
-                  <MenuIcon />
-                </IconButton>
-                <Drawer
-                  anchor="right"
-                  open={isDrawerOpen}
-                  onClose={toggleDrawer(false)}
-                >
-                  {drawer}
-                </Drawer>
-              </Container>
-            </Navbar>
-          ) : (
-            <Navbar bg="primary" variant="dark" expand="lg">
-              <Container>
-                <Navbar.Brand as={Link} to="/dashboard">Smart Sprint</Navbar.Brand>
-                <Navbar.Toggle aria-controls="basic-navbar-nav" />
-                <Navbar.Collapse id="basic-navbar-nav">
-                  <Nav className="me-auto">
-                    <Nav.Link as={Link} to="/dashboard">Dashboard</Nav.Link>
-                    <Nav.Link as={Link} to="/projects">Projects</Nav.Link>
-                    {isAdminOrPM && (
-                      <Nav.Link as={Link} to="/users">Users</Nav.Link>
-                    )}
-                    <NavDropdown title="Task Manager" id="task-manager-dropdown">
-                      {projects.length > 0 ? (
-                        projects.map(project => (
-                          <NavDropdown.Item 
-                            key={project._id} 
-                            as={Link} 
-                            to={`/kanban/${project._id}`}
-                          >
-                            {project.name}
-                          </NavDropdown.Item>
-                        ))
-                      ) : (
-                        <NavDropdown.Item disabled>No projects available</NavDropdown.Item>
-                      )}
-                    </NavDropdown>
-                  </Nav>
-                  <Nav>
-                    <Button 
-                      variant="outline-light" 
-                      onClick={handleLogout}
-                      className="ms-2"
-                    >
-                      Logout
-                    </Button>
-                  </Nav>
-                </Navbar.Collapse>
-              </Container>
-            </Navbar>
-          )}
-        </>
-      ) : null}
+                  {user?.role}
+                </Badge>
+              </Dropdown.Toggle>
+              
+              <Dropdown.Menu>
+                <Dropdown.Item as={Link} to="/profile">
+                  <PersonIcon fontSize="small" className="me-2" /> Profile
+                </Dropdown.Item>
+                <Dropdown.Divider />
+                <Dropdown.Item onClick={handleLogout}>
+                  <ExitToAppIcon fontSize="small" className="me-2" /> Logout
+                </Dropdown.Item>
+              </Dropdown.Menu>
+            </Dropdown>
+          </Navbar.Collapse>
+        </Container>
+      </Navbar>
+      
+      {/* Mobile Drawer */}
+      <Offcanvas show={mobileOpen} onHide={handleDrawerToggle} placement="start">
+        <Offcanvas.Header closeButton className="bg-primary text-white">
+          <Offcanvas.Title className="d-flex align-items-center">
+            <img
+              src="/logo.png" 
+              width="30"
+              height="30"
+              className="d-inline-block align-top me-2"
+              alt="Smart Sprint Logo"
+            />
+            Smart Sprint Menu
+          </Offcanvas.Title>
+        </Offcanvas.Header>
+        <Offcanvas.Body className="p-0">
+          {/* User info at the top */}
+          <div className="p-3 bg-light">
+            <div className="d-flex align-items-center">
+              {user?.profilePicture ? (
+                <Image 
+                  src={getProfileImage()}
+                  width="50"
+                  height="50"
+                  roundedCircle
+                  className="me-3 border"
+                />
+              ) : (
+                <div className="avatar-placeholder-large me-3 bg-secondary rounded-circle d-flex align-items-center justify-content-center" style={{ width: '50px', height: '50px' }}>
+                  <PersonIcon fontSize="large" />
+                </div>
+              )}
+              <div>
+                <h6 className="mb-0">{user?.username}</h6>
+                <div>
+                  <Badge 
+                    bg={user?.role === 'Admin' ? 'danger' : user?.role === 'Project Manager' ? 'warning' : 'info'} 
+                  >
+                    {user?.role}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <ListGroup variant="flush">
+            <ListGroup.Item 
+              action 
+              as={Link} 
+              to="/dashboard" 
+              onClick={handleDrawerToggle}
+            >
+              <DashboardIcon fontSize="small" className="me-3" /> Dashboard
+            </ListGroup.Item>
+            
+            {canManageUsers && (
+              <ListGroup.Item 
+                action 
+                as={Link} 
+                to="/users" 
+                onClick={handleDrawerToggle}
+              >
+                <PeopleIcon fontSize="small" className="me-3" /> Users
+              </ListGroup.Item>
+            )}
+            
+            <ListGroup.Item 
+              action 
+              as={Link} 
+              to="/projects" 
+              onClick={handleDrawerToggle}
+            >
+              <AssignmentIcon fontSize="small" className="me-3" /> Projects
+            </ListGroup.Item>
+            
+            <ListGroup.Item 
+              action 
+              as={Link} 
+              to="/kanban" 
+              onClick={handleDrawerToggle}
+            >
+              <ViewKanbanIcon fontSize="small" className="me-3" /> Kanban Board
+            </ListGroup.Item>
+            
+            <ListGroup.Item 
+              action 
+              as={Link} 
+              to="/profile" 
+              onClick={handleDrawerToggle}
+            >
+              <PersonIcon fontSize="small" className="me-3" /> Profile
+            </ListGroup.Item>
+            
+            <ListGroup.Item 
+              action 
+              onClick={() => {
+                handleDrawerToggle();
+                handleLogout();
+              }}
+              className="text-danger"
+            >
+              <ExitToAppIcon fontSize="small" className="me-3" /> Logout
+            </ListGroup.Item>
+          </ListGroup>
+        </Offcanvas.Body>
+      </Offcanvas>
     </>
   );
 };

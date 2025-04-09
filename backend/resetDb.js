@@ -21,9 +21,11 @@ mongoose.connect(process.env.MONGODB_URI)
                 // Create admin user
                 const admin = new User({
                     username: 'admin',
+                    password: 'admin', // Default password for admin
                     role: 'Admin',
                     team: 'admin',
-                    level: 'admin'
+                    level: 'admin',
+                    isFirstLogin: false // Admin doesn't need to reset password
                 });
                 
                 adminUser = await admin.save();

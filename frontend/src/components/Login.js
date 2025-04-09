@@ -15,14 +15,28 @@ import API_CONFIG from '../config';
 
 const Login = () => {
     const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setError('');
+        setLoading(true);
+        
+        if (!username || !password) {
+            setError('Please enter both username and password');
+            setLoading(false);
+            return;
+        }
+        
         try {
             console.log('Attempting login with username:', username);
-            const response = await axios.post(`${API_CONFIG.BASE_URL}${API_CONFIG.AUTH_ENDPOINT}/login`, { username });
+            const response = await axios.post(`${API_CONFIG.AUTH_ENDPOINT}/login`, { 
+                username,
+                password
+            });
             console.log('Login successful, response:', response.data);
             
             // Store the token and user details
@@ -33,81 +47,89 @@ const Login = () => {
             axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
             axios.defaults.headers.common['x-auth-token'] = response.data.token;
             
-            navigate('/dashboard');
+            // Check if it's the user's first login
+            if (response.data.user.isFirstLogin) {
+                navigate('/first-login');
+            } else {
+                navigate('/dashboard');
+            }
         } catch (err) {
             console.error('Login error:', err);
-            setError(err.response?.data?.error || 'Login failed. Please try again.');
+            setError(err.response?.data?.error || 'Login failed. Please check your credentials.');
+            setLoading(false);
         }
     };
 
     return (
-        <Container component="main" maxWidth="xs" className="mt-5">
-            <Row className="justify-content-center">
-                <Col xs={12} md={10} lg={8}>
-                    <Card className="shadow-lg border-0">
+        <Container maxWidth="lg">
+            <Row className="justify-content-center align-items-center min-vh-100">
+                <Col md={8} lg={6}>
+                    <Card className="shadow-lg border-0 rounded-lg">
                         <Card.Body className="p-5">
-                            <div className="text-center mb-4">
-                                <Image 
-                                    src="/logo192.png" 
-                                    alt="Smart Sprint Logo" 
-                                    width={80} 
-                                    className="mb-3"
-                                />
-                                <Typography component="h1" variant="h4" className="fw-bold">
-                                    Smart Sprint
-                                </Typography>
-                                <Typography variant="subtitle1" color="text.secondary" className="mb-4">
-                                    Team Management Portal
-                                </Typography>
-                            </div>
-                            
-                            {error && (
-                                <Alert severity="error" className="mb-4">
-                                    {error}
-                                </Alert>
-                            )}
-                            
-                            <Box component="form" onSubmit={handleSubmit} noValidate>
-                                <TextField
-                                    margin="normal"
-                                    required
-                                    fullWidth
-                                    id="username"
-                                    label="Username"
-                                    name="username"
-                                    autoComplete="username"
-                                    autoFocus
-                                    value={username}
-                                    onChange={(e) => setUsername(e.target.value)}
-                                    className="mb-4"
-                                    variant="outlined"
-                                />
-                                
-                                <Button
-                                    type="submit"
-                                    fullWidth
-                                    variant="contained"
-                                    size="large"
-                                    className="py-3 text-white"
-                                    sx={{ 
-                                        mt: 2, 
-                                        mb: 2,
-                                        fontSize: '1rem',
-                                        backgroundColor: '#1976d2',
-                                        '&:hover': {
-                                            backgroundColor: '#1565c0',
-                                        }
-                                    }}
-                                >
-                                    Sign In
-                                </Button>
-                            </Box>
-                            
-                            <div className="text-center mt-4">
-                                <Typography variant="body2" color="text.secondary">
-                                    Default admin account: "admin"
-                                </Typography>
-                            </div>
+                            <Row className="align-items-center">
+                                <Col md={6} className="border-end text-center">
+                                    <Image 
+                                        src="/logo.png" 
+                                        alt="Smart Sprint Logo" 
+                                        className="img-fluid mb-4 p-4" 
+                                        style={{ maxWidth: '200px' }}
+                                    />
+                                    <Typography variant="h4" className="text-primary">
+                                        Smart Sprint
+                                    </Typography>
+                                    <Typography variant="subtitle1" className="text-muted">
+                                        Project Management Simplified
+                                    </Typography>
+                                </Col>
+                                <Col md={6}>
+                                    <Box component="form" onSubmit={handleSubmit} noValidate className="p-3">
+                                        <Typography variant="h5" gutterBottom className="mb-4 text-center">
+                                            Login
+                                        </Typography>
+                                        
+                                        {error && <Alert severity="error" className="mb-3">{error}</Alert>}
+                                        
+                                        <TextField
+                                            margin="normal"
+                                            required
+                                            fullWidth
+                                            id="username"
+                                            label="Username"
+                                            name="username"
+                                            autoComplete="username"
+                                            autoFocus
+                                            value={username}
+                                            onChange={(e) => setUsername(e.target.value)}
+                                            disabled={loading}
+                                        />
+                                        <TextField
+                                            margin="normal"
+                                            required
+                                            fullWidth
+                                            name="password"
+                                            label="Password"
+                                            type="password"
+                                            id="password"
+                                            autoComplete="current-password"
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            disabled={loading}
+                                        />
+                                        <Button
+                                            type="submit"
+                                            fullWidth
+                                            variant="contained"
+                                            sx={{ mt: 3, mb: 2 }}
+                                            disabled={loading}
+                                        >
+                                            {loading ? 'Logging in...' : 'Login'}
+                                        </Button>
+                                        <Typography variant="body2" color="textSecondary" align="center">
+                                            Default admin credentials: username 'admin', password 'admin'
+                                        </Typography>
+                                    </Box>
+                                </Col>
+                            </Row>
                         </Card.Body>
                     </Card>
                 </Col>

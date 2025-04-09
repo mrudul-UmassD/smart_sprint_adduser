@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Login from './components/Login';
@@ -8,6 +8,8 @@ import UserList from './components/UserList';
 import ProjectList from './components/ProjectList';
 import KanbanBoard from './components/KanbanBoard';
 import Navigation from './components/Navigation';
+import FirstLogin from './components/FirstLogin';
+import UserProfile from './components/UserProfile';
 import Box from '@mui/material/Box';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './styles.css';
@@ -56,16 +58,52 @@ const theme = createTheme({
     },
 });
 
+// Component to check if user needs to change password
+const FirstLoginCheck = ({ children }) => {
+    const navigate = useNavigate();
+    
+    useEffect(() => {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+            const user = JSON.parse(userStr);
+            if (user.isFirstLogin) {
+                navigate('/first-login');
+            }
+        }
+    }, [navigate]);
+    
+    return <>{children}</>;
+};
+
 const PrivateRoute = ({ children }) => {
     const token = localStorage.getItem('token');
     return token ? (
         <>
             <Navigation />
-            <Box sx={{ mt: 2 }}>{children}</Box>
+            <FirstLoginCheck>
+                <Box sx={{ mt: 2 }}>{children}</Box>
+            </FirstLoginCheck>
         </>
     ) : (
         <Navigate to="/login" />
     );
+};
+
+const FirstLoginRoute = ({ children }) => {
+    const token = localStorage.getItem('token');
+    const userStr = localStorage.getItem('user');
+    const user = userStr ? JSON.parse(userStr) : null;
+    const isFirstLogin = user?.isFirstLogin;
+    
+    if (!token) {
+        return <Navigate to="/login" />;
+    }
+    
+    if (token && !isFirstLogin) {
+        return <Navigate to="/dashboard" />;
+    }
+    
+    return <>{children}</>;
 };
 
 function App() {
@@ -75,6 +113,14 @@ function App() {
             <Router>
                 <Routes>
                     <Route path="/login" element={<Login />} />
+                    <Route
+                        path="/first-login"
+                        element={
+                            <FirstLoginRoute>
+                                <FirstLogin />
+                            </FirstLoginRoute>
+                        }
+                    />
                     <Route
                         path="/dashboard"
                         element={
@@ -112,6 +158,14 @@ function App() {
                         element={
                             <PrivateRoute>
                                 <KanbanBoard />
+                            </PrivateRoute>
+                        }
+                    />
+                    <Route
+                        path="/profile"
+                        element={
+                            <PrivateRoute>
+                                <UserProfile />
                             </PrivateRoute>
                         }
                     />

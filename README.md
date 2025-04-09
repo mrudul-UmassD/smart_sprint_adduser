@@ -4,7 +4,11 @@ Smart Sprint is a MERN (MongoDB, Express.js, React, Node.js) stack application f
 
 ## Features
 
-- **Simple Authentication**: Login with username only (no password required)
+- **Secure Authentication**:
+  - Password-based authentication
+  - First login password change requirement
+  - Profile picture upload
+  - User profile management
 - **Role-Based Access Control**:
   - **Admin**: Full access to manage all users, projects, and approve requests
   - **Project Manager**: Can add/edit users, request new projects, and request user additions to projects
@@ -26,6 +30,10 @@ Smart Sprint is a MERN (MongoDB, Express.js, React, Node.js) stack application f
   - Request project creation (Project Manager)
   - Team-based organization of project members
   - Request workflow for adding users to projects
+- **User Profile Management**:
+  - Change password
+  - Upload profile picture
+  - Edit personal information
 - **Responsive Design** with Material UI and Bootstrap
 
 ## Screenshots
@@ -37,7 +45,8 @@ Smart Sprint is a MERN (MongoDB, Express.js, React, Node.js) stack application f
 - **Frontend**: React, Material UI, React Bootstrap, React Router
 - **Backend**: Node.js, Express.js
 - **Database**: MongoDB Atlas
-- **Authentication**: JWT (JSON Web Tokens)
+- **Authentication**: JWT (JSON Web Tokens), bcrypt for password hashing
+- **File Storage**: Local storage for profile pictures
 
 ## Project Structure
 
@@ -47,6 +56,7 @@ smart-sprint/
 │   ├── models/           # MongoDB schema models
 │   ├── routes/           # API routes
 │   ├── middleware/       # Authentication middleware
+│   ├── uploads/          # Uploaded files (profile pictures)
 │   ├── .env              # Environment variables
 │   └── server.js         # Main server file
 ├── frontend/             # React application
@@ -87,7 +97,7 @@ smart-sprint/
    ```
    MONGODB_URI=your_mongodb_connection_string
    JWT_SECRET=your_secret_key
-   PORT=5001
+   PORT=5000
    ```
 
 4. Initialize the database:
@@ -107,7 +117,7 @@ npm start
 ```
 
 This will concurrently start:
-- Backend server on http://localhost:5001
+- Backend server on http://localhost:5000
 - Frontend application on http://localhost:3000
 
 #### Separate Servers Method
@@ -131,7 +141,14 @@ If you prefer to run the servers separately:
 4. Log in with the default admin account:
    ```
    Username: admin
+   Password: admin
    ```
+
+### Authentication Flow
+
+1. **First-Time Login**: Users whose accounts were created by an Admin or Project Manager will be required to change their password on first login
+2. **Password Security**: Passwords are hashed using bcrypt before storage
+3. **Profile Management**: Users can update their profile information and upload a profile picture
 
 ### Resetting the Database
 
@@ -168,6 +185,8 @@ If you need to reset the database to its initial state with only the admin user:
 
 ### Authentication
 - `POST /api/auth/login` - User login
+- `POST /api/auth/change-password` - Change password (authenticated)
+- `POST /api/auth/first-password` - Set password on first login (authenticated)
 - `POST /api/auth/reset-db` - Reset database to initial state (admin only)
 
 ### Users
@@ -176,6 +195,7 @@ If you need to reset the database to its initial state with only the admin user:
 - `PATCH /api/users/:id` - Update a user (Admin/PM only)
 - `DELETE /api/users/:id` - Delete a user (Admin/PM only)
 - `GET /api/users/me` - Get current user details
+- `POST /api/users/profile-picture` - Upload profile picture (authenticated)
 
 ### Projects
 - `GET /api/projects` - Get all accessible projects

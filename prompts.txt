@@ -1,0 +1,34 @@
+Prompts in Conversation:
+
+1. "Summary of the conversation so far:"
+   - Initial conversations about GitHub repository management
+   - Running the application with a single command 
+   - Details about package.json creation and README.md updates
+   - Information about backend (port 5001) and frontend (port 3000) servers
+   - Request to modify user management functionality:
+     - For "Project Manager" or "Admin" roles, hide "Team" and "Level" fields 
+     - Store these roles as "pm" and "admin" respectively
+     - "Team" and "Level" fields cannot be null in database
+     - Improve UI with Bootstrap
+
+2. "Close all the ports, update the git repo"
+   - Request to close all running ports
+   - Update the git repository with changes
+
+3. "Implement Password authentication to all the profiles."
+   - Default password for admin should be "admin"
+   - No validations for password
+   - Initial password for user will be same as their username
+   - At first login, user should be forced to create a new password
+   - Add User details in the navigation bar
+   - User should change their password from user details
+   - User can edit other details and upload profile picture
+   - Ensure no errors in the end
+   - Create a txt file with all prompts
+   - Update the readme file
+
+4. "write all the promts of this conversations sequence wise in a txt file
+   in github create a new branch for auth, and upload all the code there."
+   - Create a text file with all prompts in sequence
+   - Create a new GitHub branch for authentication
+   - Upload all the code to this new branch 
