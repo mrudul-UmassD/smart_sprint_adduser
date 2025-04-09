@@ -8,17 +8,35 @@ const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 
+// Ensure the uploads directory exists
+const uploadsDir = path.join(__dirname, '../uploads');
+try {
+    if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+        console.log('Created uploads directory');
+    }
+} catch (err) {
+    console.error('Error creating uploads directory:', err);
+}
+
 // Configure multer for file uploads
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        const dir = path.join(__dirname, '../uploads');
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
+        try {
+            cb(null, uploadsDir);
+        } catch (err) {
+            console.error('Error with upload destination:', err);
+            cb(err);
         }
-        cb(null, dir);
     },
     filename: (req, file, cb) => {
-        cb(null, `${Date.now()}-${file.originalname}`);
+        try {
+            const safeName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+            cb(null, `${Date.now()}-${safeName}`);
+        } catch (err) {
+            console.error('Error with filename generation:', err);
+            cb(err);
+        }
     }
 });
 
@@ -26,14 +44,34 @@ const upload = multer({
     storage,
     limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
     fileFilter: (req, file, cb) => {
-        const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/png', 'image/gif'];
-        if (allowedTypes.includes(file.mimetype)) {
-            cb(null, true);
-        } else {
-            cb(new Error('Invalid file type. Only PDF, DOCX, and images are allowed.'));
+        try {
+            const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/png', 'image/gif'];
+            if (allowedTypes.includes(file.mimetype)) {
+                cb(null, true);
+            } else {
+                cb(new Error('Invalid file type. Only PDF, DOCX, and images are allowed.'));
+            }
+        } catch (err) {
+            console.error('Error in file filter:', err);
+            cb(err);
         }
     }
 });
+
+// Error handling middleware for multer errors
+const handleMulterError = (err, req, res, next) => {
+    if (err instanceof multer.MulterError) {
+        // A Multer error occurred when uploading
+        console.error('Multer error:', err);
+        return res.status(400).json({ error: `Upload error: ${err.message}` });
+    } else if (err) {
+        // An unknown error occurred
+        console.error('Unknown upload error:', err);
+        return res.status(500).json({ error: `Server error during upload: ${err.message}` });
+    }
+    // No error occurred, continue
+    next();
+};
 
 // Get tasks for a project
 router.get('/project/:projectId', auth, async (req, res) => {
@@ -176,7 +214,19 @@ router.get('/:taskId', auth, async (req, res) => {
 });
 
 // Create a new task
-router.post('/', auth, upload.array('attachments', 5), async (req, res) => {
+router.post('/', auth, (req, res, next) => {
+    // Make attachments optional
+    if (req.is('multipart/form-data')) {
+        upload.array('attachments', 5)(req, res, (err) => {
+            if (err) {
+                return handleMulterError(err, req, res, next);
+            }
+            next();
+        });
+    } else {
+        next();
+    }
+}, async (req, res) => {
     try {
         // Only Admin and Project Manager can create tasks
         if (req.user.role !== 'Admin' && req.user.role !== 'Project Manager') {
@@ -238,12 +288,25 @@ router.post('/', auth, upload.array('attachments', 5), async (req, res) => {
             
         res.status(201).json(populatedTask);
     } catch (error) {
+        console.error('Error creating task:', error);
         res.status(400).json({ error: error.message });
     }
 });
 
 // Update task
-router.patch('/:taskId', auth, upload.array('attachments', 5), async (req, res) => {
+router.patch('/:taskId', auth, (req, res, next) => {
+    // Make attachments optional
+    if (req.is('multipart/form-data')) {
+        upload.array('attachments', 5)(req, res, (err) => {
+            if (err) {
+                return handleMulterError(err, req, res, next);
+            }
+            next();
+        });
+    } else {
+        next();
+    }
+}, async (req, res) => {
     try {
         const { taskId } = req.params;
         const updates = req.body;
@@ -402,7 +465,7 @@ router.delete('/:taskId', auth, async (req, res) => {
 });
 
 // Add comment to task
-router.post('/:taskId/comments', auth, upload.array('attachments', 3), async (req, res) => {
+router.post('/:taskId/comments', auth, upload.array('attachments', 3), handleMulterError, async (req, res) => {
     try {
         const { taskId } = req.params;
         const { text } = req.body;
