@@ -84,8 +84,20 @@ router.post('/', auth, async (req, res) => {
                 createdBy: req.user.id
             });
             
+            // Add the admin as a project member automatically
+            project.members.push({
+                userId: req.user.id,
+                role: 'Project Manager'
+            });
+            
             await project.save();
-            res.status(201).json(project);
+            
+            // Fetch the populated project to return
+            const populatedProject = await Project.findById(project._id)
+                .populate('members.userId', 'username team level role')
+                .populate('createdBy', 'username');
+                
+            res.status(201).json(populatedProject);
         } else if (req.user.role === 'Project Manager') {
             // Project Managers must request project creation
             const projectRequest = {
@@ -107,6 +119,7 @@ router.post('/', auth, async (req, res) => {
             return res.status(403).json({ error: 'Only Admin and Project Manager can create or request projects' });
         }
     } catch (error) {
+        console.error('Project creation error:', error);
         res.status(400).json({ error: error.message });
     }
 });

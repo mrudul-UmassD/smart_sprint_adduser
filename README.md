@@ -6,9 +6,9 @@ Smart Sprint is a MERN (MongoDB, Express.js, React, Node.js) stack application f
 
 - **Simple Authentication**: Login with username only (no password required)
 - **Role-Based Access Control**:
-  - **Admin**: Full access to manage all users and their roles
-  - **Project Manager**: Can add, edit, delete, and view all users
-  - **Developer**: Can view their own details
+  - **Admin**: Full access to manage all users, projects, and approve requests
+  - **Project Manager**: Can add/edit users, request new projects, and request user additions to projects
+  - **Developer**: Can view their assigned projects and team members
 - **Team Categories**:
   - Design
   - Database
@@ -21,15 +21,20 @@ Smart Sprint is a MERN (MongoDB, Express.js, React, Node.js) stack application f
   - Senior
   - Dev
   - Junior
-- **Responsive Design** with Material UI
+- **Project Management**:
+  - Create and manage projects (Admin)
+  - Request project creation (Project Manager)
+  - Team-based organization of project members
+  - Request workflow for adding users to projects
+- **Responsive Design** with Material UI and Bootstrap
 
-## Screenshot
+## Screenshots
 
 ![Smart Sprint Login](/screenshots/login.png)
 
 ## Tech Stack
 
-- **Frontend**: React, Material UI, React Router
+- **Frontend**: React, Material UI, React Bootstrap, React Router
 - **Backend**: Node.js, Express.js
 - **Database**: MongoDB Atlas
 - **Authentication**: JWT (JSON Web Tokens)
@@ -128,14 +133,63 @@ If you prefer to run the servers separately:
    Username: admin
    ```
 
+### Resetting the Database
+
+If you need to reset the database to its initial state with only the admin user:
+
+1. Send a POST request to `/api/auth/reset-db` endpoint using a tool like Postman
+2. Alternatively, you can add a reset button to the admin interface
+
+## User Roles and Workflows
+
+### Admin
+
+- Create, edit, and delete users
+- Create, edit, and delete projects
+- Approve or reject Project Manager requests for:
+  - New project creation
+  - Adding users to projects
+- Add users directly to projects
+
+### Project Manager
+
+- View and edit user information
+- Request new project creation (requires Admin approval)
+- Request to add users to projects (requires Admin approval)
+- View all assigned projects
+
+### Developer
+
+- View personal information
+- View assigned projects
+- View team members in assigned projects
+
 ## API Endpoints
 
+### Authentication
 - `POST /api/auth/login` - User login
+- `POST /api/auth/reset-db` - Reset database to initial state (admin only)
+
+### Users
 - `GET /api/users` - Get all users (Admin/PM only)
 - `POST /api/users` - Create a new user (Admin/PM only)
 - `PATCH /api/users/:id` - Update a user (Admin/PM only)
 - `DELETE /api/users/:id` - Delete a user (Admin/PM only)
 - `GET /api/users/me` - Get current user details
+
+### Projects
+- `GET /api/projects` - Get all accessible projects
+- `GET /api/projects/:id` - Get specific project details
+- `POST /api/projects` - Create a new project (Admin) or request project creation (PM)
+- `PATCH /api/projects/:id` - Update a project (Admin only)
+- `DELETE /api/projects/:id` - Delete a project (Admin only)
+- `POST /api/projects/:id/members` - Add user to project (Admin only)
+- `DELETE /api/projects/:id/members/:userId` - Remove user from project (Admin only)
+- `POST /api/projects/:id/requests` - Request to add a user to a project (PM only)
+- `PATCH /api/projects/:id/requests/:requestId` - Approve/reject user request (Admin only)
+- `GET /api/projects/admin/project-requests` - Get all project creation requests (Admin only)
+- `GET /api/projects/my-project-requests` - Get PM's project creation requests (PM only)
+- `PATCH /api/projects/admin/project-requests/:requestId` - Approve/reject project creation (Admin only)
 
 ## Contributing
 
@@ -152,5 +206,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Acknowledgments
 
 - MongoDB Atlas for database hosting
-- Material UI for the frontend components
+- Material UI and Bootstrap for the frontend components
 - The MERN stack community for valuable resources 
