@@ -103,7 +103,7 @@ const UserProfile = () => {
         }
 
         try {
-            await axios.post(`${API_CONFIG.USERS_ENDPOINT}/change-password`, {
+            await axios.post(`${API_CONFIG.AUTH_ENDPOINT}/change-password`, {
                 currentPassword: passwordData.currentPassword,
                 newPassword: passwordData.newPassword,
             });
