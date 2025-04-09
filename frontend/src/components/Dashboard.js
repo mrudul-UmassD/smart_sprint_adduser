@@ -167,12 +167,31 @@ const Dashboard = () => {
                                         variant="contained" 
                                         color="primary"
                                         onClick={() => navigate('/users')}
-                                        className="px-4"
+                                        className="px-4 me-3"
                                     >
                                         Manage Users
                                     </Button>
+                                    <Button 
+                                        variant="contained" 
+                                        color="secondary"
+                                        onClick={() => navigate('/projects')}
+                                        className="px-4"
+                                    >
+                                        Manage Projects
+                                    </Button>
                                 </div>
-                            ) : null}
+                            ) : (
+                                <div className="mt-4 text-center">
+                                    <Button 
+                                        variant="contained" 
+                                        color="primary"
+                                        onClick={() => navigate('/projects')}
+                                        className="px-4"
+                                    >
+                                        View My Projects
+                                    </Button>
+                                </div>
+                            )}
                         </Card.Body>
                     </Card>
                 </Col>

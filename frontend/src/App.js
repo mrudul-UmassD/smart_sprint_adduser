@@ -5,6 +5,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import UserList from './components/UserList';
+import ProjectList from './components/ProjectList';
 import Navigation from './components/Navigation';
 import Box from '@mui/material/Box';
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -76,6 +77,14 @@ function App() {
                         element={
                             <PrivateRoute>
                                 <UserList />
+                            </PrivateRoute>
+                        }
+                    />
+                    <Route
+                        path="/projects"
+                        element={
+                            <PrivateRoute>
+                                <ProjectList />
                             </PrivateRoute>
                         }
                     />

@@ -20,6 +20,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import PeopleIcon from '@mui/icons-material/People';
 import LogoutIcon from '@mui/icons-material/Logout';
+import FolderIcon from '@mui/icons-material/Folder';
 import { Navbar, Nav, Container } from 'react-bootstrap';
 
 const Navigation = () => {
@@ -59,6 +60,12 @@ const Navigation = () => {
             path: '/dashboard', 
             visible: true,
             icon: <DashboardIcon />
+        },
+        {
+            label: 'Projects',
+            path: '/projects',
+            visible: true,
+            icon: <FolderIcon />
         },
         {
             label: 'Users',
