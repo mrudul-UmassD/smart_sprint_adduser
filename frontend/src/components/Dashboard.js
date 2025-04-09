@@ -9,10 +9,14 @@ import {
     List,
     ListItem,
     ListItemText,
+    Alert,
 } from '@mui/material';
+import { Container, Row, Col, Card, Badge } from 'react-bootstrap';
+import { Person, Work, EmojiEvents, Group } from '@mui/icons-material';
 
 const Dashboard = () => {
     const [userDetails, setUserDetails] = useState(null);
+    const [error, setError] = useState('');
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -28,7 +32,11 @@ const Dashboard = () => {
             setUserDetails(response.data);
         } catch (error) {
             console.error('Error fetching user details:', error);
-            navigate('/login');
+            setError('Error loading user details. Please try again later.');
+            // Wait a moment before redirecting to login
+            setTimeout(() => {
+                navigate('/login');
+            }, 3000);
         }
     };
 
@@ -38,50 +46,138 @@ const Dashboard = () => {
         navigate('/login');
     };
 
+    // Helper function to get badge color based on role
+    const getRoleBadgeColor = (role) => {
+        switch(role) {
+            case 'Admin': return 'danger';
+            case 'Project Manager': return 'warning';
+            case 'Developer': return 'primary';
+            default: return 'secondary';
+        }
+    };
+
+    // Helper function to get badge color based on team
+    const getTeamBadgeColor = (team) => {
+        switch(team) {
+            case 'Design': return 'info';
+            case 'Database': return 'dark';
+            case 'Backend': return 'success';
+            case 'Frontend': return 'primary';
+            case 'DevOps': return 'danger';
+            case 'Tester/Security': return 'warning';
+            case 'admin': return 'danger';
+            case 'pm': return 'warning';
+            default: return 'secondary';
+        }
+    };
+
+    if (error) {
+        return (
+            <Container className="mt-5">
+                <Alert severity="error">{error}</Alert>
+            </Container>
+        );
+    }
+
     if (!userDetails) {
-        return <Typography>Loading...</Typography>;
+        return (
+            <Container className="mt-5 text-center">
+                <Typography>Loading user details...</Typography>
+            </Container>
+        );
     }
 
     return (
-        <Box sx={{ p: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-                <Typography variant="h4">Dashboard</Typography>
-                <Button variant="contained" color="error" onClick={handleLogout}>
-                    Logout
-                </Button>
-            </Box>
-            <Paper elevation={3} sx={{ p: 3, maxWidth: 600, mx: 'auto' }}>
-                <Typography variant="h5" gutterBottom>
-                    User Details
-                </Typography>
-                <List>
-                    <ListItem>
-                        <ListItemText
-                            primary="Username"
-                            secondary={userDetails.username}
-                        />
-                    </ListItem>
-                    <ListItem>
-                        <ListItemText
-                            primary="Role"
-                            secondary={userDetails.role}
-                        />
-                    </ListItem>
-                    <ListItem>
-                        <ListItemText
-                            primary="Team"
-                            secondary={userDetails.team}
-                        />
-                    </ListItem>
-                    <ListItem>
-                        <ListItemText
-                            primary="Level"
-                            secondary={userDetails.level}
-                        />
-                    </ListItem>
-                </List>
-            </Paper>
-        </Box>
+        <Container fluid className="p-4">
+            <Row>
+                <Col lg={8} className="mx-auto">
+                    <Card className="shadow mb-4">
+                        <Card.Header className="bg-primary text-white py-3">
+                            <Row className="align-items-center">
+                                <Col>
+                                    <h4 className="m-0">User Dashboard</h4>
+                                </Col>
+                                <Col className="text-end">
+                                    <Button 
+                                        variant="contained" 
+                                        color="error" 
+                                        onClick={handleLogout}
+                                        className="rounded-pill"
+                                    >
+                                        Logout
+                                    </Button>
+                                </Col>
+                            </Row>
+                        </Card.Header>
+                        
+                        <Card.Body className="p-4">
+                            <Row className="mb-4">
+                                <Col className="text-center">
+                                    <div className="p-3 bg-light rounded mb-3">
+                                        <Person className="text-primary" style={{ fontSize: 64 }} />
+                                    </div>
+                                    <Typography variant="h4">{userDetails.username}</Typography>
+                                    <Badge bg={getRoleBadgeColor(userDetails.role)} className="mt-2 px-3 py-2">
+                                        {userDetails.role}
+                                    </Badge>
+                                </Col>
+                            </Row>
+                            
+                            <Row className="mt-4">
+                                <Col md={4} className="mb-3">
+                                    <Card className="h-100 bg-light">
+                                        <Card.Body className="text-center">
+                                            <Work className="text-info mb-3" style={{ fontSize: 40 }} />
+                                            <Typography variant="h6">Team</Typography>
+                                            <Badge bg={getTeamBadgeColor(userDetails.team)} className="mt-2">
+                                                {userDetails.team}
+                                            </Badge>
+                                        </Card.Body>
+                                    </Card>
+                                </Col>
+                                
+                                <Col md={4} className="mb-3">
+                                    <Card className="h-100 bg-light">
+                                        <Card.Body className="text-center">
+                                            <EmojiEvents className="text-warning mb-3" style={{ fontSize: 40 }} />
+                                            <Typography variant="h6">Level</Typography>
+                                            <Typography variant="body1" className="mt-2">
+                                                {userDetails.level}
+                                            </Typography>
+                                        </Card.Body>
+                                    </Card>
+                                </Col>
+                                
+                                <Col md={4} className="mb-3">
+                                    <Card className="h-100 bg-light">
+                                        <Card.Body className="text-center">
+                                            <Group className="text-success mb-3" style={{ fontSize: 40 }} />
+                                            <Typography variant="h6">Account Created</Typography>
+                                            <Typography variant="body1" className="mt-2">
+                                                {new Date(userDetails.createdAt).toLocaleDateString()}
+                                            </Typography>
+                                        </Card.Body>
+                                    </Card>
+                                </Col>
+                            </Row>
+                            
+                            {userDetails.role === 'Admin' || userDetails.role === 'Project Manager' ? (
+                                <div className="mt-4 text-center">
+                                    <Button 
+                                        variant="contained" 
+                                        color="primary"
+                                        onClick={() => navigate('/users')}
+                                        className="px-4"
+                                    >
+                                        Manage Users
+                                    </Button>
+                                </div>
+                            ) : null}
+                        </Card.Body>
+                    </Card>
+                </Col>
+            </Row>
+        </Container>
     );
 };
 

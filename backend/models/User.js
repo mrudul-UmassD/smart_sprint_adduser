@@ -14,12 +14,14 @@ const userSchema = new mongoose.Schema({
     },
     team: {
         type: String,
-        enum: ['Design', 'Database', 'Backend', 'Frontend', 'DevOps', 'Tester/Security', 'None'],
+        enum: ['Design', 'Database', 'Backend', 'Frontend', 'DevOps', 'Tester/Security', 'None', 'admin', 'pm'],
+        required: true,
         default: 'None'
     },
     level: {
         type: String,
-        enum: ['Lead', 'Senior', 'Dev', 'Junior'],
+        enum: ['Lead', 'Senior', 'Dev', 'Junior', 'admin', 'pm'],
+        required: true,
         default: 'Dev'
     },
     createdAt: {

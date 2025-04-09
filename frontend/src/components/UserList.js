@@ -17,12 +17,16 @@ import {
     DialogActions,
     TextField,
     MenuItem,
+    Alert,
 } from '@mui/material';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import { Container, Row, Col, Card, Badge } from 'react-bootstrap';
 
 const UserList = () => {
     const [users, setUsers] = useState([]);
     const [open, setOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState(null);
+    const [errorMessage, setErrorMessage] = useState('');
     const [formData, setFormData] = useState({
         username: '',
         role: '',
@@ -47,6 +51,7 @@ const UserList = () => {
     };
 
     const handleOpen = (user = null) => {
+        setErrorMessage('');
         if (user) {
             setSelectedUser(user);
             setFormData({
@@ -70,10 +75,46 @@ const UserList = () => {
     const handleClose = () => {
         setOpen(false);
         setSelectedUser(null);
+        setErrorMessage('');
+    };
+
+    const handleRoleChange = (e) => {
+        const role = e.target.value;
+        if (role === 'Admin') {
+            setFormData({
+                ...formData,
+                role: role,
+                team: 'admin',
+                level: 'admin'
+            });
+        } else if (role === 'Project Manager') {
+            setFormData({
+                ...formData,
+                role: role,
+                team: 'pm',
+                level: 'pm'
+            });
+        } else {
+            setFormData({
+                ...formData,
+                role: role,
+                // Keep existing team and level for Developer role
+            });
+        }
     };
 
     const handleSubmit = async () => {
         try {
+            // Validation
+            if (!formData.username) {
+                setErrorMessage('Username is required');
+                return;
+            }
+            if (!formData.role) {
+                setErrorMessage('Role is required');
+                return;
+            }
+            
             const token = localStorage.getItem('token');
             if (selectedUser) {
                 await axios.patch(
@@ -90,6 +131,7 @@ const UserList = () => {
             fetchUsers();
         } catch (error) {
             console.error('Error saving user:', error);
+            setErrorMessage(error.response?.data?.error || 'Error saving user');
         }
     };
 
@@ -105,52 +147,113 @@ const UserList = () => {
         }
     };
 
-    return (
-        <Box sx={{ p: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-                <Typography variant="h4">Users</Typography>
-                <Button variant="contained" onClick={() => handleOpen()}>
-                    Add User
-                </Button>
-            </Box>
-            <TableContainer component={Paper}>
-                <Table>
-                    <TableHead>
-                        <TableRow>
-                            <TableCell>Username</TableCell>
-                            <TableCell>Role</TableCell>
-                            <TableCell>Team</TableCell>
-                            <TableCell>Level</TableCell>
-                            <TableCell>Actions</TableCell>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {users.map((user) => (
-                            <TableRow key={user._id}>
-                                <TableCell>{user.username}</TableCell>
-                                <TableCell>{user.role}</TableCell>
-                                <TableCell>{user.team}</TableCell>
-                                <TableCell>{user.level}</TableCell>
-                                <TableCell>
-                                    <Button onClick={() => handleOpen(user)}>Edit</Button>
-                                    <Button
-                                        color="error"
-                                        onClick={() => handleDelete(user._id)}
-                                    >
-                                        Delete
-                                    </Button>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </TableContainer>
+    // Helper function to get appropriate badge color based on role
+    const getRoleBadgeColor = (role) => {
+        switch(role) {
+            case 'Admin': return 'danger';
+            case 'Project Manager': return 'warning';
+            case 'Developer': return 'primary';
+            default: return 'secondary';
+        }
+    };
 
-            <Dialog open={open} onClose={handleClose}>
-                <DialogTitle>
+    // Helper function to get appropriate badge color based on team
+    const getTeamBadgeColor = (team) => {
+        switch(team) {
+            case 'Design': return 'info';
+            case 'Database': return 'dark';
+            case 'Backend': return 'success';
+            case 'Frontend': return 'primary';
+            case 'DevOps': return 'danger';
+            case 'Tester/Security': return 'warning';
+            case 'admin': return 'danger';
+            case 'pm': return 'warning';
+            default: return 'secondary';
+        }
+    };
+
+    return (
+        <Container fluid className="p-4">
+            <Card className="shadow-sm mb-4">
+                <Card.Body>
+                    <Row className="align-items-center mb-3">
+                        <Col>
+                            <h2 className="mb-0">User Management</h2>
+                        </Col>
+                        <Col className="text-end">
+                            <Button 
+                                variant="contained" 
+                                color="primary" 
+                                onClick={() => handleOpen()}
+                                className="rounded-pill px-4"
+                            >
+                                Add User
+                            </Button>
+                        </Col>
+                    </Row>
+                    
+                    <TableContainer component={Paper} className="shadow-sm">
+                        <Table striped hover responsive>
+                            <TableHead className="bg-light">
+                                <TableRow>
+                                    <TableCell><strong>Username</strong></TableCell>
+                                    <TableCell><strong>Role</strong></TableCell>
+                                    <TableCell><strong>Team</strong></TableCell>
+                                    <TableCell><strong>Level</strong></TableCell>
+                                    <TableCell><strong>Actions</strong></TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {users.map((user) => (
+                                    <TableRow key={user._id} hover>
+                                        <TableCell>{user.username}</TableCell>
+                                        <TableCell>
+                                            <Badge bg={getRoleBadgeColor(user.role)} pill>
+                                                {user.role}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge bg={getTeamBadgeColor(user.team)} pill>
+                                                {user.team}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>{user.level}</TableCell>
+                                        <TableCell>
+                                            <Button 
+                                                variant="outlined" 
+                                                size="small" 
+                                                onClick={() => handleOpen(user)}
+                                                className="me-2"
+                                            >
+                                                Edit
+                                            </Button>
+                                            <Button
+                                                variant="outlined"
+                                                color="error"
+                                                size="small"
+                                                onClick={() => handleDelete(user._id)}
+                                            >
+                                                Delete
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                </Card.Body>
+            </Card>
+
+            <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+                <DialogTitle className="bg-light">
                     {selectedUser ? 'Edit User' : 'Add New User'}
                 </DialogTitle>
-                <DialogContent>
+                <DialogContent className="p-4">
+                    {errorMessage && (
+                        <Alert severity="error" className="mb-3">
+                            {errorMessage}
+                        </Alert>
+                    )}
                     <TextField
                         margin="dense"
                         label="Username"
@@ -159,6 +262,7 @@ const UserList = () => {
                         onChange={(e) =>
                             setFormData({ ...formData, username: e.target.value })
                         }
+                        className="mb-3"
                     />
                     <TextField
                         margin="dense"
@@ -166,56 +270,61 @@ const UserList = () => {
                         label="Role"
                         fullWidth
                         value={formData.role}
-                        onChange={(e) =>
-                            setFormData({ ...formData, role: e.target.value })
-                        }
+                        onChange={handleRoleChange}
+                        className="mb-3"
                     >
                         <MenuItem value="Admin">Admin</MenuItem>
                         <MenuItem value="Project Manager">Project Manager</MenuItem>
                         <MenuItem value="Developer">Developer</MenuItem>
                     </TextField>
-                    <TextField
-                        margin="dense"
-                        select
-                        label="Team"
-                        fullWidth
-                        value={formData.team}
-                        onChange={(e) =>
-                            setFormData({ ...formData, team: e.target.value })
-                        }
-                    >
-                        <MenuItem value="None">None</MenuItem>
-                        <MenuItem value="Design">Design</MenuItem>
-                        <MenuItem value="Database">Database</MenuItem>
-                        <MenuItem value="Backend">Backend</MenuItem>
-                        <MenuItem value="Frontend">Frontend</MenuItem>
-                        <MenuItem value="DevOps">DevOps</MenuItem>
-                        <MenuItem value="Tester/Security">Tester/Security</MenuItem>
-                    </TextField>
-                    <TextField
-                        margin="dense"
-                        select
-                        label="Level"
-                        fullWidth
-                        value={formData.level}
-                        onChange={(e) =>
-                            setFormData({ ...formData, level: e.target.value })
-                        }
-                    >
-                        <MenuItem value="Lead">Lead</MenuItem>
-                        <MenuItem value="Senior">Senior</MenuItem>
-                        <MenuItem value="Dev">Dev</MenuItem>
-                        <MenuItem value="Junior">Junior</MenuItem>
-                    </TextField>
+                    
+                    {formData.role === 'Developer' && (
+                        <>
+                            <TextField
+                                margin="dense"
+                                select
+                                label="Team"
+                                fullWidth
+                                value={formData.team}
+                                onChange={(e) =>
+                                    setFormData({ ...formData, team: e.target.value })
+                                }
+                                className="mb-3"
+                            >
+                                <MenuItem value="None">None</MenuItem>
+                                <MenuItem value="Design">Design</MenuItem>
+                                <MenuItem value="Database">Database</MenuItem>
+                                <MenuItem value="Backend">Backend</MenuItem>
+                                <MenuItem value="Frontend">Frontend</MenuItem>
+                                <MenuItem value="DevOps">DevOps</MenuItem>
+                                <MenuItem value="Tester/Security">Tester/Security</MenuItem>
+                            </TextField>
+                            <TextField
+                                margin="dense"
+                                select
+                                label="Level"
+                                fullWidth
+                                value={formData.level}
+                                onChange={(e) =>
+                                    setFormData({ ...formData, level: e.target.value })
+                                }
+                            >
+                                <MenuItem value="Lead">Lead</MenuItem>
+                                <MenuItem value="Senior">Senior</MenuItem>
+                                <MenuItem value="Dev">Dev</MenuItem>
+                                <MenuItem value="Junior">Junior</MenuItem>
+                            </TextField>
+                        </>
+                    )}
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleClose}>Cancel</Button>
-                    <Button onClick={handleSubmit} variant="contained">
+                <DialogActions className="p-3">
+                    <Button onClick={handleClose} variant="outlined">Cancel</Button>
+                    <Button onClick={handleSubmit} variant="contained" color="primary">
                         {selectedUser ? 'Update' : 'Add'}
                     </Button>
                 </DialogActions>
             </Dialog>
-        </Box>
+        </Container>
     );
 };
 

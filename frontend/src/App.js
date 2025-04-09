@@ -7,6 +7,7 @@ import Dashboard from './components/Dashboard';
 import UserList from './components/UserList';
 import Navigation from './components/Navigation';
 import Box from '@mui/material/Box';
+import 'bootstrap/dist/css/bootstrap.min.css';
 
 const theme = createTheme({
     palette: {
@@ -15,6 +16,30 @@ const theme = createTheme({
         },
         secondary: {
             main: '#dc004e',
+        },
+    },
+    typography: {
+        fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
+    },
+    components: {
+        MuiButton: {
+            styleOverrides: {
+                root: {
+                    borderRadius: 8,
+                    padding: '8px 16px',
+                    transition: 'transform 0.2s',
+                    '&:hover': {
+                        transform: 'translateY(-2px)',
+                    },
+                },
+            },
+        },
+        MuiPaper: {
+            styleOverrides: {
+                root: {
+                    borderRadius: 8,
+                },
+            },
         },
     },
 });
