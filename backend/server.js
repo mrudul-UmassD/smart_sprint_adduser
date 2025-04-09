@@ -68,10 +68,16 @@ const gracefulShutdown = () => {
     if (server) {
         server.close(() => {
             console.log('Server closed');
-            mongoose.connection.close(false, () => {
-                console.log('MongoDB connection closed');
-                process.exit(0);
-            });
+            // Close mongoose connection without callback
+            mongoose.connection.close()
+                .then(() => {
+                    console.log('MongoDB connection closed');
+                    process.exit(0);
+                })
+                .catch(err => {
+                    console.error('Error closing MongoDB connection:', err);
+                    process.exit(1);
+                });
         });
     } else {
         process.exit(0);

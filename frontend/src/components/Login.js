@@ -21,12 +21,22 @@ const Login = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
+            console.log('Attempting login with username:', username);
             const response = await axios.post(`${API_CONFIG.BASE_URL}${API_CONFIG.AUTH_ENDPOINT}/login`, { username });
+            console.log('Login successful, response:', response.data);
+            
+            // Store the token and user details
             localStorage.setItem('token', response.data.token);
             localStorage.setItem('user', JSON.stringify(response.data.user));
+            
+            // Set default auth headers for all future requests
+            axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+            axios.defaults.headers.common['x-auth-token'] = response.data.token;
+            
             navigate('/dashboard');
         } catch (err) {
-            setError(err.response?.data?.error || 'Login failed');
+            console.error('Login error:', err);
+            setError(err.response?.data?.error || 'Login failed. Please try again.');
         }
     };
 

@@ -38,13 +38,13 @@ const Dashboard = () => {
         }
 
         try {
-            const response = await axios.get(`${API_CONFIG.BASE_URL}${API_CONFIG.USERS_ENDPOINT}/me`, {
-                headers: {
-                    'x-auth-token': token
-                }
-            });
+            console.log('Fetching user details...');
+            // No need to manually set headers as axios interceptor will handle it
+            const response = await axios.get(`${API_CONFIG.USERS_ENDPOINT}/me`);
+            console.log('User details fetched:', response.data);
             setUserDetails(response.data);
         } catch (err) {
+            console.error('Error fetching user details:', err);
             const errorMsg = err.response?.data?.error || 'Failed to fetch user details';
             setError(errorMsg);
             
