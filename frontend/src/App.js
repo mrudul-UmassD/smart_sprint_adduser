@@ -6,6 +6,7 @@ import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import UserList from './components/UserList';
 import ProjectList from './components/ProjectList';
+import KanbanBoard from './components/KanbanBoard';
 import Navigation from './components/Navigation';
 import Box from '@mui/material/Box';
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -95,6 +96,22 @@ function App() {
                         element={
                             <PrivateRoute>
                                 <ProjectList />
+                            </PrivateRoute>
+                        }
+                    />
+                    <Route
+                        path="/kanban"
+                        element={
+                            <PrivateRoute>
+                                <KanbanBoard />
+                            </PrivateRoute>
+                        }
+                    />
+                    <Route
+                        path="/kanban/:projectId"
+                        element={
+                            <PrivateRoute>
+                                <KanbanBoard />
                             </PrivateRoute>
                         }
                     />
