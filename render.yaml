@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: smart-sprint
+    runtime: node
+    buildCommand: npm run install-all && cd frontend && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+    autoDeploy: true 
