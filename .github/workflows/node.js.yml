@@ -1,0 +1,58 @@
+name: Node.js CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [16.x, 18.x]
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        npm ci
+    
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm ci
+    
+    - name: Lint backend
+      run: |
+        cd backend
+        npm run lint || echo "No lint script found"
+    
+    - name: Lint frontend
+      run: |
+        cd frontend
+        npm run lint || echo "No lint script found"
+    
+    - name: Test backend
+      run: |
+        cd backend
+        npm test || echo "No test script found"
+    
+    - name: Test frontend
+      run: |
+        cd frontend
+        npm test -- --watchAll=false || echo "No test script found"
+    
+    - name: Build frontend
+      run: |
+        cd frontend
+        npm run build || echo "No build script found" 

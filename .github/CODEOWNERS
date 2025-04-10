@@ -1,0 +1,19 @@
+# These owners will be the default owners for everything in the repo.
+# Unless a later match takes precedence, they will be requested for
+# review when someone opens a pull request.
+* @mrudul-UmassD
+
+# Backend code ownership
+/backend/ @mrudul-UmassD
+
+# Frontend code ownership
+/frontend/ @mrudul-UmassD
+
+# Documentation ownership
+/docs/ @mrudul-UmassD
+*.md @mrudul-UmassD
+
+# Config files ownership
+*.json @mrudul-UmassD
+*.yaml @mrudul-UmassD
+*.yml @mrudul-UmassD 
