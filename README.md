@@ -236,4 +236,17 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Authors
 
-Your Name - [Your GitHub](https://github.com/yourusername) 
+Your Name - [Your GitHub](https://github.com/yourusername)
+
+## GitHub Integration
+
+This project has been configured with GitHub templates and workflows for better collaboration and continuous integration. The repository includes:
+
+- Issue templates for bug reports and feature requests
+- Pull request templates
+- GitHub Actions for CI/CD
+- Dependabot for automatic dependency updates
+- Contributing guidelines
+- Security policy
+
+For more information, see the CONTRIBUTING.md file. 
