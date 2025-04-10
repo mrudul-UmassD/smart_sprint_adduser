@@ -1,23 +1,35 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import {
     Box,
     Paper,
     Typography,
-    Button,
     List,
     ListItem,
     ListItemText,
-    Alert,
+    Alert as MuiAlert,
+    CircularProgress,
 } from '@mui/material';
-import { Container, Row, Col, Card, Badge } from 'react-bootstrap';
-import { Person, Work, EmojiEvents, Group } from '@mui/icons-material';
+import { Container, Row, Col, Card, Badge, ProgressBar, Button, Alert, Spinner } from 'react-bootstrap';
+import { 
+    Person as PersonIcon, 
+    Group as GroupIcon, 
+    Folder as FolderOpenIcon,
+    AccountCircle as AccountCircleIcon,
+    Work, 
+    EmojiEvents, 
+    Assignment, 
+    Timeline, 
+    DeveloperMode,
+    Dashboard as DashboardIcon
+} from '@mui/icons-material';
 import API_CONFIG from '../config';
 
 const Dashboard = () => {
     const [userDetails, setUserDetails] = useState(null);
     const [error, setError] = useState('');
+    const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -38,17 +50,16 @@ const Dashboard = () => {
         }
 
         try {
-            console.log('Fetching user details...');
-            // No need to manually set headers as axios interceptor will handle it
+            setLoading(true);
             const response = await axios.get(`${API_CONFIG.USERS_ENDPOINT}/me`);
-            console.log('User details fetched:', response.data);
             setUserDetails(response.data);
+            setLoading(false);
         } catch (err) {
             console.error('Error fetching user details:', err);
             const errorMsg = err.response?.data?.error || 'Failed to fetch user details';
             setError(errorMsg);
+            setLoading(false);
             
-            // If we get an authentication error, clear token and redirect to login
             if (err.response?.status === 401 || errorMsg.toLowerCase().includes('auth') || errorMsg.toLowerCase().includes('token')) {
                 setTimeout(() => {
                     localStorage.removeItem('token');
@@ -93,15 +104,18 @@ const Dashboard = () => {
     if (error) {
         return (
             <Container className="mt-5">
-                <Alert severity="error">{error}</Alert>
+                <Alert variant="danger">{error}</Alert>
             </Container>
         );
     }
 
-    if (!userDetails) {
+    if (loading || !userDetails) {
         return (
             <Container className="mt-5 text-center">
-                <Typography>Loading user details...</Typography>
+                <Spinner animation="border" role="status" variant="primary">
+                    <span className="visually-hidden">Loading...</span>
+                </Spinner>
+                <p className="mt-3">Loading your dashboard...</p>
             </Container>
         );
     }
@@ -109,19 +123,29 @@ const Dashboard = () => {
     return (
         <Container fluid className="p-4">
             <Row>
-                <Col lg={8} className="mx-auto">
-                    <Card className="shadow mb-4">
-                        <Card.Header className="bg-primary text-white py-3">
+                <Col lg={10} className="mx-auto">
+                    <Card className="shadow-lg border-0 rounded-3 overflow-hidden">
+                        <Card.Header className="py-4" style={{ 
+                            background: 'linear-gradient(135deg, #0062cc 0%, #4d8fda 100%)',
+                            borderBottom: 0
+                        }}>
                             <Row className="align-items-center">
-                                <Col>
-                                    <h4 className="m-0">User Dashboard</h4>
+                                <Col md={8}>
+                                    <div className="d-flex align-items-center">
+                                        <DashboardIcon className="text-white me-3" style={{ fontSize: 36 }} />
+                                        <div>
+                                            <h4 className="m-0 text-white fw-bold">Welcome, {userDetails.username}!</h4>
+                                            <p className="text-white-50 m-0 mt-1">
+                                                {userDetails.role} • {userDetails.team}
+                                            </p>
+                                        </div>
+                                    </div>
                                 </Col>
-                                <Col className="text-end">
+                                <Col md={4} className="text-end">
                                     <Button 
-                                        variant="contained" 
-                                        color="error" 
+                                        variant="outline-light" 
                                         onClick={handleLogout}
-                                        className="rounded-pill"
+                                        className="rounded-pill px-4"
                                     >
                                         Logout
                                     </Button>
@@ -129,92 +153,113 @@ const Dashboard = () => {
                             </Row>
                         </Card.Header>
                         
-                        <Card.Body className="p-4">
-                            <Row className="mb-4">
-                                <Col className="text-center">
-                                    <div className="p-3 bg-light rounded mb-3">
-                                        <Person className="text-primary" style={{ fontSize: 64 }} />
-                                    </div>
-                                    <Typography variant="h4">{userDetails.username}</Typography>
-                                    <Badge bg={getRoleBadgeColor(userDetails.role)} className="mt-2 px-3 py-2">
-                                        {userDetails.role}
-                                    </Badge>
+                        <Card.Body className="px-4 py-5">
+                            <Row>
+                                <Col md={6} lg={4} className="mb-4">
+                                    <Card className="h-100 border-0 shadow-sm">
+                                        <Card.Body>
+                                            <h6 className="text-uppercase text-muted mb-3">Profile Info</h6>
+                                            <div className="d-flex align-items-center mb-3">
+                                                <div className="bg-light rounded-circle p-3 me-3">
+                                                    <PersonIcon className="text-primary" />
+                                                </div>
+                                                <div>
+                                                    <h5 className="mb-0">{userDetails.username}</h5>
+                                                    <small className="text-muted">{userDetails.email || 'No email provided'}</small>
+                                                </div>
+                                            </div>
+                                            <hr />
+                                            <Row className="g-3">
+                                                <Col xs={6}>
+                                                    <div className="mb-0">
+                                                        <small className="text-muted d-block">Role</small>
+                                                        <Badge 
+                                                            bg={getRoleBadgeColor(userDetails.role)} 
+                                                            className="mt-1"
+                                                        >
+                                                            {userDetails.role}
+                                                        </Badge>
+                                                    </div>
+                                                </Col>
+                                                <Col xs={6}>
+                                                    <div className="mb-0">
+                                                        <small className="text-muted d-block">Team</small>
+                                                        <Badge 
+                                                            bg={getTeamBadgeColor(userDetails.team)} 
+                                                            className="mt-1"
+                                                        >
+                                                            {userDetails.team}
+                                                        </Badge>
+                                                    </div>
+                                                </Col>
+                                                {userDetails.level && (
+                                                    <Col xs={6}>
+                                                        <div className="mb-0">
+                                                            <small className="text-muted d-block">Level</small>
+                                                            <span className="d-block">{userDetails.level}</span>
+                                                        </div>
+                                                    </Col>
+                                                )}
+                                            </Row>
+                                        </Card.Body>
+                                    </Card>
+                                </Col>
+                                <Col md={6} lg={8} className="mb-4">
+                                    <Card className="h-100 border-0 shadow-sm">
+                                        <Card.Body>
+                                            <h6 className="text-uppercase text-muted mb-3">Quick Actions</h6>
+                                            <Row className="g-3">
+                                                {(userDetails.role === 'Admin' || userDetails.role === 'Project Manager') && (
+                                                    <Col xs={12} sm={6} xl={4}>
+                                                        <Button 
+                                                            variant="primary" 
+                                                            className="w-100 d-flex align-items-center justify-content-center py-3"
+                                                            onClick={() => navigate('/users')}
+                                                        >
+                                                            <GroupIcon className="me-2" />
+                                                            Manage Users
+                                                        </Button>
+                                                    </Col>
+                                                )}
+                                                <Col xs={12} sm={6} xl={4}>
+                                                    <Button 
+                                                        variant="outline-primary" 
+                                                        className="w-100 d-flex align-items-center justify-content-center py-3"
+                                                        onClick={() => navigate('/projects')}
+                                                    >
+                                                        <FolderOpenIcon className="me-2" />
+                                                        View Projects
+                                                    </Button>
+                                                </Col>
+                                                <Col xs={12} sm={6} xl={4}>
+                                                    <Button 
+                                                        variant="outline-primary" 
+                                                        className="w-100 d-flex align-items-center justify-content-center py-3"
+                                                        onClick={() => navigate('/profile')}
+                                                    >
+                                                        <PersonIcon className="me-2" />
+                                                        Edit Profile
+                                                    </Button>
+                                                </Col>
+                                            </Row>
+                                        </Card.Body>
+                                    </Card>
                                 </Col>
                             </Row>
-                            
-                            <Row className="mt-4">
-                                <Col md={4} className="mb-3">
-                                    <Card className="h-100 bg-light">
-                                        <Card.Body className="text-center">
-                                            <Work className="text-info mb-3" style={{ fontSize: 40 }} />
-                                            <Typography variant="h6">Team</Typography>
-                                            <Badge bg={getTeamBadgeColor(userDetails.team)} className="mt-2">
-                                                {userDetails.team}
-                                            </Badge>
-                                        </Card.Body>
-                                    </Card>
-                                </Col>
-                                
-                                <Col md={4} className="mb-3">
-                                    <Card className="h-100 bg-light">
-                                        <Card.Body className="text-center">
-                                            <EmojiEvents className="text-warning mb-3" style={{ fontSize: 40 }} />
-                                            <Typography variant="h6">Level</Typography>
-                                            <Typography variant="body1" className="mt-2">
-                                                {userDetails.level}
-                                            </Typography>
-                                        </Card.Body>
-                                    </Card>
-                                </Col>
-                                
-                                <Col md={4} className="mb-3">
-                                    <Card className="h-100 bg-light">
-                                        <Card.Body className="text-center">
-                                            <Group className="text-success mb-3" style={{ fontSize: 40 }} />
-                                            <Typography variant="h6">Account Created</Typography>
-                                            <Typography variant="body1" className="mt-2">
-                                                {new Date(userDetails.createdAt).toLocaleDateString()}
-                                            </Typography>
-                                        </Card.Body>
-                                    </Card>
-                                </Col>
-                            </Row>
-                            
-                            {userDetails.role === 'Admin' || userDetails.role === 'Project Manager' ? (
-                                <div className="mt-4 text-center">
-                                    <Button 
-                                        variant="contained" 
-                                        color="primary"
-                                        onClick={() => navigate('/users')}
-                                        className="px-4 me-3"
-                                    >
-                                        Manage Users
-                                    </Button>
-                                    <Button 
-                                        variant="contained" 
-                                        color="secondary"
-                                        onClick={() => navigate('/projects')}
-                                        className="px-4"
-                                    >
-                                        Manage Projects
-                                    </Button>
-                                </div>
-                            ) : (
-                                <div className="mt-4 text-center">
-                                    <Button 
-                                        variant="contained" 
-                                        color="primary"
-                                        onClick={() => navigate('/projects')}
-                                        className="px-4"
-                                    >
-                                        View My Projects
-                                    </Button>
-                                </div>
-                            )}
                         </Card.Body>
                     </Card>
                 </Col>
             </Row>
+            <style jsx>{`
+                .hover-elevate:hover {
+                    transform: translateY(-5px);
+                    transition: transform 0.3s ease;
+                    box-shadow: 0 8px 16px rgba(0,0,0,0.1) !important;
+                }
+                .hover-elevate {
+                    transition: transform 0.3s ease, box-shadow 0.3s ease;
+                }
+            `}</style>
         </Container>
     );
 };
