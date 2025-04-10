@@ -1,230 +1,145 @@
-# Smart Sprint - Team Management Application
+# Smart Sprint
 
-Smart Sprint is a MERN (MongoDB, Express.js, React, Node.js) stack application for team management with role-based access control.
+Smart Sprint is a comprehensive team management application built with the MERN stack (MongoDB, Express, React, Node.js). It features role-based access control, project management capabilities, and a Kanban board for task visualization.
 
 ## Features
 
-- **Secure Authentication**:
+- **Secure Authentication System**
   - Password-based authentication
-  - First login password change requirement
-  - Profile picture upload
-  - User profile management
-- **Role-Based Access Control**:
-  - **Admin**: Full access to manage all users, projects, and approve requests
-  - **Project Manager**: Can add/edit users, request new projects, and request user additions to projects
-  - **Developer**: Can view their assigned projects and team members
-- **Team Categories**:
-  - Design
-  - Database
-  - Backend
-  - Frontend
-  - DevOps
-  - Tester/Security
-- **Developer Levels**:
-  - Lead
-  - Senior
-  - Dev
-  - Junior
-- **Project Management**:
-  - Create and manage projects (Admin)
-  - Request project creation (Project Manager)
-  - Team-based organization of project members
-  - Request workflow for adding users to projects
-- **User Profile Management**:
-  - Change password
-  - Upload profile picture
-  - Edit personal information
-- **Responsive Design** with Material UI and Bootstrap
+  - First-time login password setup
+  - Role-based access control (Admin, Project Manager, Developer)
+  - User profile management with profile pictures
 
-## Screenshots
+- **User Management**
+  - Create, edit, and delete users
+  - Assign roles, teams, and levels
+  - Manage user permissions
 
-![Smart Sprint Login](/screenshots/login.png)
+- **Project Management**
+  - Create and manage projects
+  - Assign team members to projects
+  - Track project progress
 
-## Tech Stack
+- **Task Management**
+  - Kanban board for visual task management
+  - Create, assign, and track tasks
+  - Set priorities and due dates
+  - Move tasks between stages
 
-- **Frontend**: React, Material UI, React Bootstrap, React Router
-- **Backend**: Node.js, Express.js
-- **Database**: MongoDB Atlas
-- **Authentication**: JWT (JSON Web Tokens), bcrypt for password hashing
-- **File Storage**: Local storage for profile pictures
+- **Responsive Design**
+  - Works on desktop and mobile devices
+  - Bootstrap and Material UI components
 
-## Project Structure
-
-```
-smart-sprint/
-├── backend/              # Express.js server
-│   ├── models/           # MongoDB schema models
-│   ├── routes/           # API routes
-│   ├── middleware/       # Authentication middleware
-│   ├── uploads/          # Uploaded files (profile pictures)
-│   ├── .env              # Environment variables
-│   └── server.js         # Main server file
-├── frontend/             # React application
-│   ├── public/           # Static files
-│   └── src/
-│       ├── components/   # React components
-│       └── App.js        # Main React component
-```
-
-## Getting Started
+## Installation
 
 ### Prerequisites
 
-- Node.js (v14+)
-- npm
-- MongoDB database (local or Atlas)
+- Node.js (v14 or higher)
+- MongoDB (local or Atlas)
+- npm or yarn
 
-### Installation
+### Setup
 
 1. Clone the repository:
    ```
-   git clone https://github.com/mrudul-UmassD/smart_sprint_adduser.git
+   git clone https://github.com/yourusername/smart-sprint.git
    cd smart-sprint
    ```
 
-2. Install all dependencies with a single command:
+2. Install all dependencies (root, backend, and frontend):
    ```
    npm run install-all
    ```
-   
-   This will install dependencies for:
-   - Root project (for running both servers)
-   - Backend server
-   - Frontend application
 
 3. Set up environment variables:
-   Create a `.env` file in the `backend` directory with:
-   ```
-   MONGODB_URI=your_mongodb_connection_string
-   JWT_SECRET=your_secret_key
-   PORT=5000
-   ```
+   - Create a `.env` file in the backend directory with the following:
+     ```
+     MONGODB_URI=your_mongodb_connection_string
+     JWT_SECRET=your_secret_key
+     PORT=5000
+     ```
 
 4. Initialize the database:
    ```
    cd backend
-   npm run init-db
-   cd ..
+   node resetDatabase.js
    ```
+   This will create an admin user with username "admin" and password "admin".
 
-### Running the Application
+## Running the Application
 
-#### Single Command Method
+Start both the backend and frontend servers with a single command:
 
-Run both the backend and frontend servers with a single command:
 ```
 npm start
 ```
 
-This will concurrently start:
-- Backend server on http://localhost:5000
-- Frontend application on http://localhost:3000
+- Backend server runs on: http://localhost:5000
+- Frontend server runs on: http://localhost:3000
 
-#### Separate Servers Method
+## Default Login
 
-If you prefer to run the servers separately:
+- Username: `admin`
+- Password: `admin`
 
-1. Start the backend server:
-   ```
-   cd backend
-   npm run dev
-   ```
+## User Roles
 
-2. In a separate terminal, start the frontend application:
-   ```
-   cd frontend
-   npm start
-   ```
+1. **Admin**
+   - Full access to all features
+   - Can manage users, projects, and tasks
+   - Can assign roles to users
 
-3. Open your browser and navigate to `http://localhost:3000`
+2. **Project Manager**
+   - Can create and manage projects
+   - Can manage tasks and team members
+   - Limited user management capabilities
 
-4. Log in with the default admin account:
-   ```
-   Username: admin
-   Password: admin
-   ```
+3. **Developer**
+   - Can view assigned projects
+   - Can create and manage tasks within assigned projects
+   - Cannot manage users or create projects
 
-### Authentication Flow
+## Development
 
-1. **First-Time Login**: Users whose accounts were created by an Admin or Project Manager will be required to change their password on first login
-2. **Password Security**: Passwords are hashed using bcrypt before storage
-3. **Profile Management**: Users can update their profile information and upload a profile picture
+To run the servers separately:
 
-### Resetting the Database
+- Backend:
+  ```
+  npm run server
+  ```
 
-If you need to reset the database to its initial state with only the admin user:
+- Frontend:
+  ```
+  npm run client
+  ```
 
-1. Send a POST request to `/api/auth/reset-db` endpoint using a tool like Postman
-2. Alternatively, you can add a reset button to the admin interface
+## File Structure
 
-## User Roles and Workflows
-
-### Admin
-
-- Create, edit, and delete users
-- Create, edit, and delete projects
-- Approve or reject Project Manager requests for:
-  - New project creation
-  - Adding users to projects
-- Add users directly to projects
-
-### Project Manager
-
-- View and edit user information
-- Request new project creation (requires Admin approval)
-- Request to add users to projects (requires Admin approval)
-- View all assigned projects
-
-### Developer
-
-- View personal information
-- View assigned projects
-- View team members in assigned projects
-
-## API Endpoints
-
-### Authentication
-- `POST /api/auth/login` - User login
-- `POST /api/auth/change-password` - Change password (authenticated)
-- `POST /api/auth/first-password` - Set password on first login (authenticated)
-- `POST /api/auth/reset-db` - Reset database to initial state (admin only)
-
-### Users
-- `GET /api/users` - Get all users (Admin/PM only)
-- `POST /api/users` - Create a new user (Admin/PM only)
-- `PATCH /api/users/:id` - Update a user (Admin/PM only)
-- `DELETE /api/users/:id` - Delete a user (Admin/PM only)
-- `GET /api/users/me` - Get current user details
-- `POST /api/users/profile-picture` - Upload profile picture (authenticated)
-
-### Projects
-- `GET /api/projects` - Get all accessible projects
-- `GET /api/projects/:id` - Get specific project details
-- `POST /api/projects` - Create a new project (Admin) or request project creation (PM)
-- `PATCH /api/projects/:id` - Update a project (Admin only)
-- `DELETE /api/projects/:id` - Delete a project (Admin only)
-- `POST /api/projects/:id/members` - Add user to project (Admin only)
-- `DELETE /api/projects/:id/members/:userId` - Remove user from project (Admin only)
-- `POST /api/projects/:id/requests` - Request to add a user to a project (PM only)
-- `PATCH /api/projects/:id/requests/:requestId` - Approve/reject user request (Admin only)
-- `GET /api/projects/admin/project-requests` - Get all project creation requests (Admin only)
-- `GET /api/projects/my-project-requests` - Get PM's project creation requests (PM only)
-- `PATCH /api/projects/admin/project-requests/:requestId` - Approve/reject project creation (Admin only)
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch: `git checkout -b feature/amazing-feature`
-3. Commit your changes: `git commit -m 'Add some amazing feature'`
-4. Push to the branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
+```
+smart-sprint/
+  ├── backend/             # Backend server code
+  │   ├── models/          # MongoDB models
+  │   ├── routes/          # API routes
+  │   ├── middleware/      # Custom middleware
+  │   ├── uploads/         # User uploads (profile pictures)
+  │   ├── server.js        # Server entry point
+  │   └── resetDatabase.js # Database initialization script
+  │
+  ├── frontend/            # React frontend code
+  │   ├── public/          # Static files
+  │   └── src/             # Source files
+  │       ├── components/  # React components
+  │       ├── App.js       # Main component
+  │       └── index.js     # Entry point
+  │
+  ├── package.json         # Root package.json for running both servers
+  └── README.md            # Project documentation
+```
 
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## Acknowledgments
+## Author
 
-- MongoDB Atlas for database hosting
-- Material UI and Bootstrap for the frontend components
-- The MERN stack community for valuable resources 
+Your Name - [Your GitHub](https://github.com/yourusername) 
