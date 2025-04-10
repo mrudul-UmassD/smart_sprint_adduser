@@ -21,6 +21,8 @@ import {
     ExitToApp as ExitToAppIcon,
     Settings as SettingsIcon
 } from '@mui/icons-material';
+// Import logo
+import logo from '../assets/logo/logo.png';
 
 const Navigation = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -138,7 +140,7 @@ const Navigation = () => {
         <Container fluid>
           <Navbar.Brand as={Link} to="/dashboard" className="d-flex align-items-center">
             <img
-              src="/logo.png" 
+              src={logo} 
               width="30"
               height="30"
               className="d-inline-block align-top me-2"
@@ -227,7 +229,7 @@ const Navigation = () => {
         <Offcanvas.Header closeButton className="bg-primary text-white">
           <Offcanvas.Title className="d-flex align-items-center">
             <img
-              src="/logo.png" 
+              src={logo} 
               width="30"
               height="30"
               className="d-inline-block align-top me-2"

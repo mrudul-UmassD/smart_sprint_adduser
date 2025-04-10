@@ -1,62 +1,20 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import UserList from './components/UserList';
 import ProjectList from './components/ProjectList';
 import KanbanBoard from './components/KanbanBoard';
+import TaskDetail from './components/TaskDetail';
 import Navigation from './components/Navigation';
 import FirstLogin from './components/FirstLogin';
 import UserProfile from './components/UserProfile';
 import Box from '@mui/material/Box';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './styles.css';
-
-const theme = createTheme({
-    palette: {
-        primary: {
-            main: '#3f51b5',
-        },
-        secondary: {
-            main: '#f50057',
-        },
-    },
-    typography: {
-        fontFamily: [
-            'Roboto',
-            'Arial',
-            'sans-serif',
-        ].join(','),
-        h4: {
-            fontWeight: 600,
-        },
-        h5: {
-            fontWeight: 500,
-        },
-        h6: {
-            fontWeight: 500,
-        },
-    },
-    components: {
-        MuiButton: {
-            styleOverrides: {
-                root: {
-                    textTransform: 'none',
-                    borderRadius: 8,
-                },
-            },
-        },
-        MuiPaper: {
-            styleOverrides: {
-                root: {
-                    borderRadius: 8,
-                },
-            },
-        },
-    },
-});
+import theme from './theme';
 
 // Component to check if user needs to change password
 const FirstLoginCheck = ({ children }) => {
@@ -158,6 +116,14 @@ function App() {
                         element={
                             <PrivateRoute>
                                 <KanbanBoard />
+                            </PrivateRoute>
+                        }
+                    />
+                    <Route
+                        path="/task/:taskId"
+                        element={
+                            <PrivateRoute>
+                                <TaskDetail />
                             </PrivateRoute>
                         }
                     />

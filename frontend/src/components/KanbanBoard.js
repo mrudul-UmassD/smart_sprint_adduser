@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { 
   Container, 
@@ -13,6 +13,11 @@ import {
   Alert,
   Spinner
 } from 'react-bootstrap';
+import {
+  Edit as EditIcon,
+  Delete as DeleteIcon
+} from '@mui/icons-material';
+import { IconButton } from '@mui/material';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import API_CONFIG from '../config';
 
@@ -304,44 +309,83 @@ const KanbanBoard = () => {
                         .map((task, index) => (
                           <Draggable key={task._id} draggableId={task._id} index={index}>
                             {(provided) => (
-                              <Card 
+                              <div 
                                 ref={provided.innerRef}
                                 {...provided.draggableProps}
                                 {...provided.dragHandleProps}
-                                className="mb-2 task-card"
-                                onClick={() => handleOpenTaskDialog(task)}
+                                style={{
+                                  ...provided.draggableProps.style
+                                }}
                               >
-                                <Card.Body>
-                                  <Card.Title>{task.title}</Card.Title>
-                                  <div className="mt-2 mb-2">
-                                    <Badge bg={getPriorityBadgeVariant(task.priority)}>
-                                      {task.priority}
-                                    </Badge>
-                                    {' '}
-                                    <Badge bg="secondary">{task.team}</Badge>
-                                  </div>
-                                  <div className="text-muted small">
-                                    Due: {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No due date'}
-                                  </div>
-                                  {task.assignee && (
-                                    <div className="mt-2">
-                                      Assignee: {task.assignee.username} ({task.assignee.team})
+                                <Card className="mb-2 task-card">
+                                  <Card.Body>
+                                    <div className="d-flex justify-content-between align-items-start mb-2">
+                                      <Link 
+                                        to={`/task/${task._id}`} 
+                                        style={{ 
+                                          textDecoration: 'none', 
+                                          color: 'inherit',
+                                          flex: 1
+                                        }}
+                                      >
+                                        <Card.Title>{task.title}</Card.Title>
+                                      </Link>
+                                      <div>
+                                        <IconButton 
+                                          size="small" 
+                                          color="primary"
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            handleOpenTaskDialog(task);
+                                          }}
+                                          style={{ padding: '4px' }}
+                                        >
+                                          <EditIcon fontSize="small" />
+                                        </IconButton>
+                                        <IconButton 
+                                          size="small" 
+                                          color="error"
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            handleDeleteTask(task._id);
+                                          }}
+                                          style={{ padding: '4px' }}
+                                        >
+                                          <DeleteIcon fontSize="small" />
+                                        </IconButton>
+                                      </div>
                                     </div>
-                                  )}
-                                  <div className="mt-2 d-flex justify-content-end">
-                                    <Button 
-                                      variant="outline-danger" 
-                                      size="sm"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDeleteTask(task._id);
+                                    <Link 
+                                      to={`/task/${task._id}`} 
+                                      style={{ 
+                                        textDecoration: 'none', 
+                                        color: 'inherit'
                                       }}
                                     >
-                                      Delete
-                                    </Button>
-                                  </div>
-                                </Card.Body>
-                              </Card>
+                                      <div className="mt-2 mb-2">
+                                        <Badge bg={getPriorityBadgeVariant(task.priority)}>
+                                          {task.priority}
+                                        </Badge>
+                                        {' '}
+                                        <Badge bg="secondary">{task.team}</Badge>
+                                      </div>
+                                      <div className="text-muted small">
+                                        Due: {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No due date'}
+                                      </div>
+                                      {task.assignee && (
+                                        <div className="mt-2">
+                                          Assignee: {task.assignee.username}
+                                        </div>
+                                      )}
+                                      {task.comments && task.comments.length > 0 && (
+                                        <div className="mt-2 text-primary small">
+                                          {task.comments.length} comment(s) - Click to view
+                                        </div>
+                                      )}
+                                    </Link>
+                                  </Card.Body>
+                                </Card>
+                              </div>
                             )}
                           </Draggable>
                         ))}

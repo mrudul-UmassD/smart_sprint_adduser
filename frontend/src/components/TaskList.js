@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import {
   Dialog,
   DialogActions,
@@ -21,7 +21,8 @@ import {
   Delete as DeleteIcon,
   Done as DoneIcon,
   Comment as CommentIcon,
-  Attachment as AttachmentIcon
+  Attachment as AttachmentIcon,
+  Visibility as VisibilityIcon
 } from '@mui/icons-material';
 import { Container, Row, Col, Card, Badge, Alert, Form, Tab, Tabs } from 'react-bootstrap';
 import API_CONFIG from '../config';
@@ -315,6 +316,15 @@ const TaskList = ({ projectId }) => {
                 </IconButton>
               </>
             ) : null}
+            <IconButton
+              size="small"
+              color="primary"
+              component={Link}
+              to={`/task/${task._id}`}
+              className="me-1"
+            >
+              <VisibilityIcon fontSize="small" />
+            </IconButton>
             {task.status !== 'Completed' && (
               <IconButton
                 size="small"
@@ -359,10 +369,12 @@ const TaskList = ({ projectId }) => {
               
               {task.comments && task.comments.length > 0 && (
                 <div>
-                  <small className="text-muted d-flex align-items-center">
-                    <CommentIcon fontSize="small" className="me-1" />
-                    {task.comments.length} comment(s)
-                  </small>
+                  <Link to={`/task/${task._id}`} className="text-decoration-none">
+                    <small className="text-muted d-flex align-items-center">
+                      <CommentIcon fontSize="small" className="me-1" />
+                      {task.comments.length} comment(s) - View details
+                    </small>
+                  </Link>
                 </div>
               )}
             </Col>
