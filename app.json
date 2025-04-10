@@ -1,0 +1,35 @@
+{
+  "name": "Smart Sprint",
+  "description": "A comprehensive team management application built with the MERN stack",
+  "keywords": [
+    "mern",
+    "react",
+    "node",
+    "express",
+    "mongodb",
+    "team management",
+    "project management"
+  ],
+  "website": "https://smart-sprint-app.herokuapp.com/",
+  "repository": "https://github.com/mrudul-UmassD/smart_sprint_adduser",
+  "success_url": "/",
+  "env": {
+    "MONGODB_URI": {
+      "description": "URI to a MongoDB database",
+      "required": true
+    },
+    "JWT_SECRET": {
+      "description": "A secret key for JWT token generation",
+      "generator": "secret"
+    },
+    "NODE_ENV": {
+      "description": "Environment mode",
+      "value": "production"
+    }
+  },
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ]
+} 
