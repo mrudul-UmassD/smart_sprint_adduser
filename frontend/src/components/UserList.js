@@ -27,6 +27,7 @@ import {
 import { Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { Container, Row, Col, Card, Badge } from 'react-bootstrap';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import API_CONFIG from '../config';
 
 const UserList = () => {
@@ -40,10 +41,27 @@ const UserList = () => {
         team: 'None',
         level: 'Dev',
     });
+    const [groupedUsers, setGroupedUsers] = useState({});
+    const [displayMode, setDisplayMode] = useState('list'); // 'list' or 'teams'
 
     useEffect(() => {
         fetchUsers();
     }, []);
+
+    useEffect(() => {
+        // Group users by team when users or displayMode changes
+        if (displayMode === 'teams') {
+            const grouped = users.reduce((acc, user) => {
+                const team = user.team || 'Unassigned';
+                if (!acc[team]) {
+                    acc[team] = [];
+                }
+                acc[team].push(user);
+                return acc;
+            }, {});
+            setGroupedUsers(grouped);
+        }
+    }, [users, displayMode]);
 
     const fetchUsers = async () => {
         try {
@@ -177,15 +195,243 @@ const UserList = () => {
         }
     };
 
+    // Handle drag end event
+    const handleDragEnd = (result) => {
+        const { destination, source, draggableId } = result;
+        
+        // If there's no destination or the item is dropped in the same place
+        if (!destination || 
+            (destination.droppableId === source.droppableId && 
+             destination.index === source.index)) {
+            return;
+        }
+        
+        if (displayMode === 'list') {
+            // Reordering in the list view
+            const newUsers = Array.from(users);
+            const [movedUser] = newUsers.splice(source.index, 1);
+            newUsers.splice(destination.index, 0, movedUser);
+            setUsers(newUsers);
+        } else {
+            // Moving between teams in team view
+            const userId = draggableId;
+            const user = users.find(u => u._id === userId);
+            const newTeam = destination.droppableId === 'Unassigned' ? 'None' : destination.droppableId;
+            
+            // Only update if the team has changed
+            if (user && user.team !== newTeam) {
+                updateUserTeam(userId, newTeam);
+            }
+        }
+    };
+
+    // Update user's team in the database
+    const updateUserTeam = async (userId, newTeam) => {
+        try {
+            const token = localStorage.getItem('token');
+            const user = users.find(u => u._id === userId);
+            
+            await axios.put(
+                `${API_CONFIG.BASE_URL}${API_CONFIG.USERS_ENDPOINT}/${userId}`, 
+                { ...user, team: newTeam },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            
+            // Update local state
+            setUsers(users.map(u => 
+                u._id === userId ? { ...u, team: newTeam } : u
+            ));
+        } catch (error) {
+            console.error('Error updating user team:', error);
+        }
+    };
+
+    // Render team cards for the team view
+    const renderTeamCards = () => {
+        // Get all possible teams including ones without users
+        const allTeams = [
+            'Design', 'Database', 'Backend', 'Frontend', 
+            'DevOps', 'Tester/Security', 'admin', 'pm', 'None'
+        ];
+        
+        return (
+            <DragDropContext onDragEnd={handleDragEnd}>
+                <Row>
+                    {allTeams.map(team => {
+                        const teamName = team === 'None' ? 'Unassigned' : team;
+                        const teamUsers = groupedUsers[team] || [];
+                        
+                        return (
+                            <Col md={4} key={team} className="mb-4">
+                                <Card className="h-100 shadow-sm">
+                                    <Card.Header className="d-flex justify-content-between align-items-center">
+                                        <h5 className="mb-0">
+                                            <Badge bg={getTeamBadgeColor(team)} className="me-2">
+                                                {teamName}
+                                            </Badge>
+                                            <small>{teamUsers.length} members</small>
+                                        </h5>
+                                    </Card.Header>
+                                    <Droppable droppableId={team}>
+                                        {(provided) => (
+                                            <div
+                                                ref={provided.innerRef}
+                                                {...provided.droppableProps}
+                                                className="p-2"
+                                                style={{ minHeight: '150px' }}
+                                            >
+                                                {teamUsers.map((user, index) => (
+                                                    <Draggable 
+                                                        key={user._id} 
+                                                        draggableId={user._id} 
+                                                        index={index}
+                                                    >
+                                                        {(provided) => (
+                                                            <Card
+                                                                ref={provided.innerRef}
+                                                                {...provided.draggableProps}
+                                                                {...provided.dragHandleProps}
+                                                                className="mb-2 p-2 border"
+                                                            >
+                                                                <div className="d-flex justify-content-between align-items-center">
+                                                                    <div>
+                                                                        <div><strong>{user.username}</strong></div>
+                                                                        <small>
+                                                                            <Badge bg={getRoleBadgeColor(user.role)} pill size="sm">
+                                                                                {user.role}
+                                                                            </Badge>
+                                                                            {' • '}
+                                                                            {user.level}
+                                                                        </small>
+                                                                    </div>
+                                                                    <div>
+                                                                        <Button
+                                                                            variant="outlined"
+                                                                            size="small"
+                                                                            onClick={() => handleOpen(user)}
+                                                                            className="me-1"
+                                                                        >
+                                                                            Edit
+                                                                        </Button>
+                                                                    </div>
+                                                                </div>
+                                                            </Card>
+                                                        )}
+                                                    </Draggable>
+                                                ))}
+                                                {provided.placeholder}
+                                            </div>
+                                        )}
+                                    </Droppable>
+                                </Card>
+                            </Col>
+                        );
+                    })}
+                </Row>
+            </DragDropContext>
+        );
+    };
+
+    // Render the standard list view
+    const renderListView = () => {
+        return (
+            <DragDropContext onDragEnd={handleDragEnd}>
+                <Droppable droppableId="userList">
+                    {(provided) => (
+                        <TableContainer 
+                            component={Paper} 
+                            className="shadow-sm"
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                        >
+                            <Table striped hover responsive>
+                                <TableHead className="bg-light">
+                                    <TableRow>
+                                        <TableCell><strong>Username</strong></TableCell>
+                                        <TableCell><strong>Role</strong></TableCell>
+                                        <TableCell><strong>Team</strong></TableCell>
+                                        <TableCell><strong>Level</strong></TableCell>
+                                        <TableCell><strong>Actions</strong></TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {users.map((user, index) => (
+                                        <Draggable key={user._id} draggableId={user._id} index={index}>
+                                            {(provided) => (
+                                                <TableRow 
+                                                    ref={provided.innerRef}
+                                                    {...provided.draggableProps}
+                                                    {...provided.dragHandleProps}
+                                                    hover
+                                                >
+                                                    <TableCell>{user.username}</TableCell>
+                                                    <TableCell>
+                                                        <Badge bg={getRoleBadgeColor(user.role)} pill>
+                                                            {user.role}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge bg={getTeamBadgeColor(user.team)} pill>
+                                                            {user.team}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell>{user.level}</TableCell>
+                                                    <TableCell>
+                                                        <Button 
+                                                            variant="outlined" 
+                                                            size="small" 
+                                                            onClick={() => handleOpen(user)}
+                                                            className="me-2"
+                                                        >
+                                                            Edit
+                                                        </Button>
+                                                        <Button
+                                                            variant="outlined"
+                                                            color="error"
+                                                            size="small"
+                                                            onClick={() => handleDelete(user._id)}
+                                                        >
+                                                            Delete
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            )}
+                                        </Draggable>
+                                    ))}
+                                    {provided.placeholder}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    )}
+                </Droppable>
+            </DragDropContext>
+        );
+    };
+
     return (
         <Container fluid className="p-4">
             <Card className="shadow-sm mb-4">
                 <Card.Body>
                     <Row className="align-items-center mb-3">
-                        <Col>
+                        <Col md={6}>
                             <h2 className="mb-0">User Management</h2>
                         </Col>
-                        <Col className="text-end">
+                        <Col md={3} className="text-md-end mb-2 mb-md-0">
+                            <Button 
+                                variant={displayMode === 'list' ? "contained" : "outlined"}
+                                className="me-2"
+                                onClick={() => setDisplayMode('list')}
+                            >
+                                List View
+                            </Button>
+                            <Button 
+                                variant={displayMode === 'teams' ? "contained" : "outlined"}
+                                onClick={() => setDisplayMode('teams')}
+                            >
+                                Team View
+                            </Button>
+                        </Col>
+                        <Col md={3} className="text-md-end">
                             <Button 
                                 variant="contained" 
                                 color="primary" 
@@ -197,55 +443,7 @@ const UserList = () => {
                         </Col>
                     </Row>
                     
-                    <TableContainer component={Paper} className="shadow-sm">
-                        <Table striped hover responsive>
-                            <TableHead className="bg-light">
-                                <TableRow>
-                                    <TableCell><strong>Username</strong></TableCell>
-                                    <TableCell><strong>Role</strong></TableCell>
-                                    <TableCell><strong>Team</strong></TableCell>
-                                    <TableCell><strong>Level</strong></TableCell>
-                                    <TableCell><strong>Actions</strong></TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {users.map((user) => (
-                                    <TableRow key={user._id} hover>
-                                        <TableCell>{user.username}</TableCell>
-                                        <TableCell>
-                                            <Badge bg={getRoleBadgeColor(user.role)} pill>
-                                                {user.role}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge bg={getTeamBadgeColor(user.team)} pill>
-                                                {user.team}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>{user.level}</TableCell>
-                                        <TableCell>
-                                            <Button 
-                                                variant="outlined" 
-                                                size="small" 
-                                                onClick={() => handleOpen(user)}
-                                                className="me-2"
-                                            >
-                                                Edit
-                                            </Button>
-                                            <Button
-                                                variant="outlined"
-                                                color="error"
-                                                size="small"
-                                                onClick={() => handleDelete(user._id)}
-                                            >
-                                                Delete
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
+                    {displayMode === 'list' ? renderListView() : renderTeamCards()}
                 </Card.Body>
             </Card>
 

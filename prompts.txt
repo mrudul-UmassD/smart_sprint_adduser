@@ -10,6 +10,8 @@ Smart Sprint is a MERN (MongoDB, Express, React, Node.js) stack application for 
 - User profile management with profile pictures
 - Project management with task assignment
 - Kanban board for task visualization
+- Drag and drop interfaces for user and task management
+- Team-based organization with visual management tools
 
 ## Step 1: Project Setup
 
@@ -103,7 +105,7 @@ Smart Sprint is a MERN (MongoDB, Express, React, Node.js) stack application for 
    mongoose.connect(process.env.MONGODB_URI)
        .then(() => {
            console.log('Connected to MongoDB');
-           const PORT = process.env.PORT || 5000;
+           const PORT = process.env.PORT || 5001;
            app.listen(PORT, () => {
                console.log(`Server is running on port ${PORT}`);
            });
@@ -117,7 +119,7 @@ Smart Sprint is a MERN (MongoDB, Express, React, Node.js) stack application for 
    ```
    MONGODB_URI=your_mongodb_connection_string
    JWT_SECRET=your_jwt_secret
-   PORT=5000
+   PORT=5001
    ```
 
 3. Create User model (models/User.js):
@@ -237,610 +239,466 @@ Smart Sprint is a MERN (MongoDB, Express, React, Node.js) stack application for 
    module.exports = auth;
    ```
 
-6. Create authentication routes (routes/auth.js):
+## Step 3: Task Management API Endpoints
+
+Create routes for task management with status updates (routes/tasks.js):
+
+```javascript
+// Add this route to the tasks.js file for updating task status
+// This is used by the Kanban board drag and drop functionality
+
+// Update task status only
+router.patch('/:taskId/status', auth, async (req, res) => {
+    try {
+        const { taskId } = req.params;
+        const { status } = req.body;
+        
+        if (!status) {
+            return res.status(400).json({ error: 'Status is required' });
+        }
+        
+        // Find the task
+        const task = await Task.findById(taskId);
+        if (!task) {
+            return res.status(404).json({ error: 'Task not found' });
+        }
+        
+        // Check if project exists
+        const project = await Project.findById(task.project);
+        if (!project) {
+            return res.status(404).json({ error: 'Project not found' });
+        }
+        
+        // Check permissions
+        if (req.user.role === 'Developer') {
+            // Must be the assignee
+            if (task.assignee && task.assignee.toString() !== req.user._id.toString()) {
+                return res.status(403).json({ error: 'You can only update tasks assigned to you' });
+            }
+        } else if (req.user.role === 'Project Manager') {
+            // Project Manager must be a PM for this project
+            const isPMMember = project.members.some(member => 
+                member.userId.toString() === req.user._id.toString() && 
+                member.role === 'Project Manager'
+            );
+            
+            if (!isPMMember) {
+                return res.status(403).json({ error: 'You must be a Project Manager of this project to update tasks' });
+            }
+        } else if (req.user.role !== 'Admin') {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+        
+        // Update status
+        task.status = status;
+        task.updatedAt = Date.now();
+        await task.save();
+        
+        // Populate references
+        const populatedTask = await Task.findById(task._id)
+            .populate('assignee', 'username team level role')
+            .populate('assignedBy', 'username');
+            
+        res.json(populatedTask);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+```
+
+## Step 4: Frontend Development - Kanban Board with Drag & Drop
+
+Create a KanbanBoard component with drag and drop functionality:
+
+```jsx
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { 
+  Container, 
+  Row, 
+  Col, 
+  Card, 
+  Badge, 
+  Button, 
+  Modal,
+  Form, 
+  Alert,
+  Spinner
+} from 'react-bootstrap';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import API_CONFIG from '../config';
+
+const KanbanBoard = () => {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [tasks, setTasks] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [selectedProject, setSelectedProject] = useState('');
+  const [showTaskDialog, setShowTaskDialog] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [error, setError] = useState('');
+  const [currentUser, setCurrentUser] = useState(null);
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    assignee: '',
+    priority: 'Medium',
+    status: 'Todo',
+    dueDate: new Date().toISOString().split('T')[0]
+  });
+
+  // Fetch current user info
+  useEffect(() => {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      setCurrentUser(JSON.parse(userStr));
+    }
+  }, []);
+
+  // Fetch projects, tasks, and users on component mount
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+
+    const fetchProjects = async () => {
+      // ... implementation
+    };
+
+    fetchProjects();
+    fetchUsers();
+  }, [navigate]);
+
+  // ... other methods
+
+  // Key method for drag and drop
+  const handleDragEnd = async (result) => {
+    if (!result.destination) return;
+    
+    const { draggableId, destination } = result;
+    const newStatus = destination.droppableId;
+    
+    await handleStatusChange(draggableId, newStatus);
+  };
+
+  const handleStatusChange = async (taskId, newStatus) => {
+    try {
+      // For developers, don't allow direct move to Completed
+      if (currentUser && currentUser.role === 'Developer' && newStatus === 'Completed') {
+        newStatus = 'Review';
+      }
+      
+      await axios.patch(`${API_CONFIG.TASKS_ENDPOINT}/${taskId}/status`, { status: newStatus });
+      fetchTasks();
+    } catch (err) {
+      console.error('Error updating task status:', err);
+      setError('Failed to update task status. Please try again later.');
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
+  const getAssigneeTeam = () => {
+    if (!formData.assignee) return null;
+    const assignedUser = users.find(user => user._id === formData.assignee);
+    return assignedUser ? assignedUser.team : null;
+  };
+
+  // ... render method with drag and drop implementation
+  return (
+    <Container fluid>
+      {/* ... other UI elements */}
+      
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <Row>
+          {getStatusColumns().map(column => (
+            <Col key={column.id} md style={{ minWidth: '250px' }}>
+              <Card className="mb-4">
+                <Card.Header className="text-center bg-light">
+                  <h5 className="mb-0">{column.title}</h5>
+                </Card.Header>
+                <Droppable droppableId={column.id}>
+                  {(provided) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                      className="p-2"
+                      style={{ minHeight: '500px' }}
+                    >
+                      {tasks
+                        .filter(task => task.status === column.id)
+                        .map((task, index) => (
+                          <Draggable key={task._id} draggableId={task._id} index={index}>
+                            {(provided) => (
+                              <Card 
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                {...provided.dragHandleProps}
+                                className="mb-2 task-card"
+                                onClick={() => handleOpenTaskDialog(task)}
+                              >
+                                {/* Card content */}
+                              </Card>
+                            )}
+                          </Draggable>
+                        ))}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      </DragDropContext>
+      
+      {/* Task dialog form */}
+    </Container>
+  );
+};
+
+export default KanbanBoard;
+```
+
+## Step 5: User Management with Drag & Drop
+
+Create a UserList component with team-based drag and drop organization:
+
+```jsx
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { /* Material UI imports */ } from '@mui/material';
+import { Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import { Container, Row, Col, Card, Badge } from 'react-bootstrap';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import API_CONFIG from '../config';
+
+const UserList = () => {
+    const [users, setUsers] = useState([]);
+    const [open, setOpen] = useState(false);
+    const [selectedUser, setSelectedUser] = useState(null);
+    const [errorMessage, setErrorMessage] = useState('');
+    const [formData, setFormData] = useState({
+        username: '',
+        role: '',
+        team: 'None',
+        level: 'Dev',
+    });
+    const [groupedUsers, setGroupedUsers] = useState({});
+    const [displayMode, setDisplayMode] = useState('list'); // 'list' or 'teams'
+
+    // ... other methods
+
+    // Handle drag end event
+    const handleDragEnd = (result) => {
+        const { destination, source, draggableId } = result;
+        
+        // If there's no destination or the item is dropped in the same place
+        if (!destination || 
+            (destination.droppableId === source.droppableId && 
+             destination.index === source.index)) {
+            return;
+        }
+        
+        if (displayMode === 'list') {
+            // Reordering in the list view
+            const newUsers = Array.from(users);
+            const [movedUser] = newUsers.splice(source.index, 1);
+            newUsers.splice(destination.index, 0, movedUser);
+            setUsers(newUsers);
+        } else {
+            // Moving between teams in team view
+            const userId = draggableId;
+            const user = users.find(u => u._id === userId);
+            const newTeam = destination.droppableId === 'Unassigned' ? 'None' : destination.droppableId;
+            
+            // Only update if the team has changed
+            if (user && user.team !== newTeam) {
+                updateUserTeam(userId, newTeam);
+            }
+        }
+    };
+
+    // Update user's team in the database
+    const updateUserTeam = async (userId, newTeam) => {
+        try {
+            const token = localStorage.getItem('token');
+            const user = users.find(u => u._id === userId);
+            
+            await axios.put(
+                `${API_CONFIG.BASE_URL}${API_CONFIG.USERS_ENDPOINT}/${userId}`, 
+                { ...user, team: newTeam },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            
+            // Update local state
+            setUsers(users.map(u => 
+                u._id === userId ? { ...u, team: newTeam } : u
+            ));
+        } catch (error) {
+            console.error('Error updating user team:', error);
+        }
+    };
+
+    // ... render methods for different views
+
+    return (
+        <Container fluid className="p-4">
+            <Card className="shadow-sm mb-4">
+                <Card.Body>
+                    <Row className="align-items-center mb-3">
+                        <Col md={6}>
+                            <h2 className="mb-0">User Management</h2>
+                        </Col>
+                        <Col md={3} className="text-md-end mb-2 mb-md-0">
+                            <Button 
+                                variant={displayMode === 'list' ? "contained" : "outlined"}
+                                className="me-2"
+                                onClick={() => setDisplayMode('list')}
+                            >
+                                List View
+                            </Button>
+                            <Button 
+                                variant={displayMode === 'teams' ? "contained" : "outlined"}
+                                onClick={() => setDisplayMode('teams')}
+                            >
+                                Team View
+                            </Button>
+                        </Col>
+                        <Col md={3} className="text-md-end">
+                            <Button 
+                                variant="contained" 
+                                color="primary" 
+                                onClick={() => handleOpen()}
+                                className="rounded-pill px-4"
+                            >
+                                Add User
+                            </Button>
+                        </Col>
+                    </Row>
+                    
+                    {displayMode === 'list' ? renderListView() : renderTeamCards()}
+                </Card.Body>
+            </Card>
+
+            {/* User dialog form */}
+        </Container>
+    );
+};
+
+export default UserList;
+```
+
+## Step 6: Role-Specific Behaviors
+
+Implement special behaviors for different roles:
+
+1. For the Developer role:
    ```javascript
-   const express = require('express');
-   const router = express.Router();
-   const User = require('../models/User');
-   const jwt = require('jsonwebtoken');
-   const mongoose = require('mongoose');
-   const auth = require('../middleware/auth');
-
-   // Login route
-   router.post('/login', async (req, res) => {
-       try {
-           const { username, password } = req.body;
-           
-           if (!username || !password) {
-               return res.status(400).json({ error: 'Username and password are required' });
-           }
-
-           const user = await User.findOne({ username });
-           
-           if (!user) {
-               return res.status(401).json({ error: 'Invalid username or password' });
-           }
-
-           // Check password
-           const isMatch = await user.comparePassword(password);
-           if (!isMatch) {
-               return res.status(401).json({ error: 'Invalid username or password' });
-           }
-
-           const token = jwt.sign(
-               { _id: user._id.toString(), role: user.role },
-               process.env.JWT_SECRET,
-               { expiresIn: '24h' }
-           );
-
-           res.json({ 
-               user: {
-                   _id: user._id,
-                   username: user.username,
-                   role: user.role,
-                   team: user.team,
-                   level: user.level,
-                   isFirstLogin: user.isFirstLogin,
-                   profilePicture: user.profilePicture,
-                   fullName: user.fullName,
-                   email: user.email,
-                   createdAt: user.createdAt
-               }, 
-               token 
-           });
-       } catch (error) {
-           res.status(500).json({ error: error.message });
+   // In KanbanBoard.js
+   const handleStatusChange = async (taskId, newStatus) => {
+     try {
+       // For developers, don't allow direct move to Completed
+       if (currentUser && currentUser.role === 'Developer' && newStatus === 'Completed') {
+         newStatus = 'Review';
        }
-   });
-
-   // Change password route
-   router.post('/change-password', auth, async (req, res) => {
-       try {
-           const { currentPassword, newPassword } = req.body;
-           
-           if (!currentPassword || !newPassword) {
-               return res.status(400).json({ error: 'Current password and new password are required' });
-           }
-
-           const user = await User.findById(req.user._id);
-           
-           if (!user) {
-               return res.status(404).json({ error: 'User not found' });
-           }
-
-           const isMatch = await user.comparePassword(currentPassword);
-           if (!isMatch) {
-               return res.status(401).json({ error: 'Current password is incorrect' });
-           }
-
-           user.password = newPassword;
-           user.isFirstLogin = false;
-           await user.save();
-
-           res.status(200).json({ message: 'Password updated successfully' });
-       } catch (error) {
-           res.status(500).json({ error: error.message });
-       }
-   });
-
-   // First-time password setup route
-   router.post('/first-password', auth, async (req, res) => {
-       try {
-           const { newPassword } = req.body;
-           
-           if (!newPassword) {
-               return res.status(400).json({ error: 'New password is required' });
-           }
-
-           const user = await User.findById(req.user._id);
-           
-           if (!user) {
-               return res.status(404).json({ error: 'User not found' });
-           }
-
-           if (!user.isFirstLogin) {
-               return res.status(400).json({ error: 'This is not your first login. Use the change password route instead.' });
-           }
-
-           user.password = newPassword;
-           user.isFirstLogin = false;
-           await user.save();
-
-           res.status(200).json({ message: 'Password set successfully' });
-       } catch (error) {
-           res.status(500).json({ error: error.message });
-       }
-   });
-
-   // Create other routes for projects, tasks, etc.
-
-   module.exports = router;
+       
+       await axios.patch(`${API_CONFIG.TASKS_ENDPOINT}/${taskId}/status`, { status: newStatus });
+       fetchTasks();
+     } catch (err) {
+       console.error('Error updating task status:', err);
+       setError('Failed to update task status. Please try again later.');
+       setTimeout(() => setError(''), 3000);
+     }
+   };
    ```
 
-7. Create user routes (routes/users.js) with profile picture upload functionality
-
-8. Create a script for database initialization (resetDatabase.js):
+2. For Admin/PM role in User form:
    ```javascript
-   require('dotenv').config();
-   const mongoose = require('mongoose');
-   const User = require('./models/User');
-
-   mongoose.connect(process.env.MONGODB_URI)
-       .then(async () => {
-           console.log('Connected to MongoDB');
-           
-           try {
-               const adminUser = await User.findOne({ username: 'admin' });
-               
-               if (adminUser) {
-                   console.log('Admin user found, resetting password...');
-                   adminUser.password = 'admin';
-                   adminUser.isFirstLogin = false;
-                   await adminUser.save();
-                   console.log('Admin password reset to "admin"');
-                   
-                   const deleteResult = await User.deleteMany({ _id: { $ne: adminUser._id } });
-                   console.log(`Deleted ${deleteResult.deletedCount} other users`);
-               } else {
-                   console.log('Admin user not found, creating new admin user...');
-                   const admin = new User({
-                       username: 'admin',
-                       password: 'admin',
-                       role: 'Admin',
-                       team: 'admin',
-                       level: 'admin',
-                       isFirstLogin: false
-                   });
-                   
-                   await admin.save();
-                   console.log('New admin user created with password "admin"');
-               }
-               
-               console.log('Database reset completed successfully');
-           } catch (error) {
-               console.error('Error resetting database:', error);
-           } finally {
-               await mongoose.connection.close();
-               console.log('Database connection closed');
-               process.exit(0);
-           }
-       })
-       .catch(error => {
-           console.error('MongoDB connection error:', error);
-           process.exit(1);
+   // In UserList.js
+   const handleRoleChange = (e) => {
+     const selectedRole = e.target.value;
+     
+     if (selectedRole === 'Admin' || selectedRole === 'Project Manager') {
+       setFormData({
+         ...formData,
+         role: selectedRole,
+         team: selectedRole === 'Admin' ? 'admin' : 'pm',
+         level: selectedRole === 'Admin' ? 'admin' : 'pm'
        });
-   ```
-
-## Step 3: Frontend Development
-
-1. Create a configuration file (src/config.js):
-   ```javascript
-   // API configuration
-   const API_CONFIG = {
-     BASE_URL: 'http://localhost:5000',
-     AUTH_ENDPOINT: '/api/auth',
-     USERS_ENDPOINT: '/api/users',
-     PROJECTS_ENDPOINT: '/api/projects',
-     TASKS_ENDPOINT: '/api/tasks',
+     } else {
+       setFormData({
+         ...formData,
+         role: selectedRole
+       });
+     }
    };
-
-   export default API_CONFIG;
    ```
 
-2. Create Login component (src/components/Login.js):
-   ```javascript
-   import React, { useState } from 'react';
-   import { useNavigate } from 'react-router-dom';
-   import axios from 'axios';
-   import {
-       Box, Button, TextField, Typography, Alert,
-   } from '@mui/material';
-   import { Card, Row, Col, Image, Container } from 'react-bootstrap';
-   import API_CONFIG from '../config';
+## Step 7: Team-Based Task Assignment
 
-   const Login = () => {
-       const [username, setUsername] = useState('');
-       const [password, setPassword] = useState('');
-       const [error, setError] = useState('');
-       const [loading, setLoading] = useState(false);
-       const navigate = useNavigate();
+Implement automatic team assignment from assignee:
 
-       const handleSubmit = async (e) => {
-           e.preventDefault();
-           setError('');
-           setLoading(true);
-           
-           if (!username || !password) {
-               setError('Please enter both username and password');
-               setLoading(false);
-               return;
-           }
-           
-           try {
-               const response = await axios.post(`${API_CONFIG.AUTH_ENDPOINT}/login`, { 
-                   username,
-                   password
-               });
-               
-               localStorage.setItem('token', response.data.token);
-               localStorage.setItem('user', JSON.stringify(response.data.user));
-               
-               axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
-               
-               if (response.data.user.isFirstLogin) {
-                   navigate('/first-login');
-               } else {
-                   navigate('/dashboard');
-               }
-           } catch (err) {
-               console.error('Login error:', err);
-               setError(err.response?.data?.error || 'Login failed. Please check your credentials.');
-               setLoading(false);
-           }
-       };
+```javascript
+const getAssigneeTeam = () => {
+  if (!formData.assignee) return null;
+  const assignedUser = users.find(user => user._id === formData.assignee);
+  return assignedUser ? assignedUser.team : null;
+};
 
-       return (
-           <Container>
-               <Row className="justify-content-center align-items-center min-vh-100">
-                   <Col md={8} lg={6}>
-                       <Card className="shadow-lg border-0 rounded-lg">
-                           <Card.Body className="p-5">
-                               <Row className="align-items-center">
-                                   <Col md={6} className="border-end text-center">
-                                       <Image 
-                                           src="/logo.png" 
-                                           alt="Smart Sprint Logo" 
-                                           className="img-fluid mb-4 p-4" 
-                                           style={{ maxWidth: '200px' }}
-                                       />
-                                       <Typography variant="h4" className="text-primary">
-                                           Smart Sprint
-                                       </Typography>
-                                       <Typography variant="subtitle1" className="text-muted">
-                                           Project Management Simplified
-                                       </Typography>
-                                   </Col>
-                                   <Col md={6}>
-                                       <Box component="form" onSubmit={handleSubmit} noValidate className="p-3">
-                                           <Typography variant="h5" gutterBottom className="mb-4 text-center">
-                                               Login
-                                           </Typography>
-                                           
-                                           {error && <Alert severity="error" className="mb-3">{error}</Alert>}
-                                           
-                                           <TextField
-                                               margin="normal"
-                                               required
-                                               fullWidth
-                                               id="username"
-                                               label="Username"
-                                               name="username"
-                                               autoComplete="username"
-                                               autoFocus
-                                               value={username}
-                                               onChange={(e) => setUsername(e.target.value)}
-                                               disabled={loading}
-                                           />
-                                           <TextField
-                                               margin="normal"
-                                               required
-                                               fullWidth
-                                               name="password"
-                                               label="Password"
-                                               type="password"
-                                               id="password"
-                                               autoComplete="current-password"
-                                               value={password}
-                                               onChange={(e) => setPassword(e.target.value)}
-                                               disabled={loading}
-                                           />
-                                           <Button
-                                               type="submit"
-                                               fullWidth
-                                               variant="contained"
-                                               sx={{ mt: 3, mb: 2 }}
-                                               disabled={loading}
-                                           >
-                                               {loading ? 'Logging in...' : 'Login'}
-                                           </Button>
-                                           <Typography variant="body2" color="textSecondary" align="center">
-                                               Default admin credentials: username 'admin', password 'admin'
-                                           </Typography>
-                                       </Box>
-                                   </Col>
-                               </Row>
-                           </Card.Body>
-                       </Card>
-                   </Col>
-               </Row>
-           </Container>
-       );
-   };
+const handleSubmit = async () => {
+  try {
+    // Get the team from the selected assignee
+    const team = getAssigneeTeam();
+    
+    if (!team) {
+      setError('Please select a valid assignee');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+    
+    const taskData = {
+      ...formData,
+      team,
+      projectId: selectedProject
+    };
 
-   export default Login;
+    // ... rest of submit logic
+  } catch (err) {
+    // ... error handling
+  }
+};
+```
+
+## Step 8: Making Changes on GitHub
+
+1. Create a new branch for your changes:
+   ```bash
+   git checkout -b feature/drag-drop-enhancements
    ```
 
-3. Create First Login component (src/components/FirstLogin.js):
-   ```javascript
-   import React, { useState } from 'react';
-   import { useNavigate } from 'react-router-dom';
-   import axios from 'axios';
-   import {
-       Box, Typography, Button, TextField, Paper, Card, Alert
-   } from '@mui/material';
-   import { Container } from 'react-bootstrap';
-   import { LockOutlined } from '@mui/icons-material';
-   import API_CONFIG from '../config';
-
-   const FirstLogin = () => {
-       const [password, setPassword] = useState('');
-       const [confirmPassword, setConfirmPassword] = useState('');
-       const [error, setError] = useState('');
-       const [loading, setLoading] = useState(false);
-       const navigate = useNavigate();
-       
-       const handleSubmit = async (e) => {
-           e.preventDefault();
-           setError('');
-           
-           if (!password || !confirmPassword) {
-               setError('Please enter both fields');
-               return;
-           }
-           
-           if (password !== confirmPassword) {
-               setError('Passwords do not match');
-               return;
-           }
-           
-           if (password.length < 4) {
-               setError('Password should be at least 4 characters long');
-               return;
-           }
-           
-           setLoading(true);
-           
-           try {
-               await axios.post(`${API_CONFIG.AUTH_ENDPOINT}/first-password`, {
-                   newPassword: password
-               });
-               
-               // Update the isFirstLogin property in local storage
-               const userStr = localStorage.getItem('user');
-               if (userStr) {
-                   const user = JSON.parse(userStr);
-                   user.isFirstLogin = false;
-                   localStorage.setItem('user', JSON.stringify(user));
-               }
-               
-               navigate('/dashboard');
-           } catch (err) {
-               console.error('Error setting new password:', err);
-               setError(err.response?.data?.error || 'Failed to set new password. Please try again.');
-           } finally {
-               setLoading(false);
-           }
-       };
-       
-       return (
-           <Container>
-               <Box sx={{ marginTop: 8, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                   <Card sx={{ padding: 4, borderRadius: 2, boxShadow: 3, width: '100%', maxWidth: '500px' }}>
-                       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                           <LockOutlined sx={{ fontSize: 40, color: 'primary.main', mb: 2 }} />
-                           <Typography component="h1" variant="h5" gutterBottom>
-                               Set New Password
-                           </Typography>
-                           <Typography variant="body2" color="textSecondary" align="center" sx={{ mb: 3 }}>
-                               This is your first login. Please set a new password to continue.
-                           </Typography>
-                           
-                           {error && <Alert severity="error" sx={{ width: '100%', mb: 2 }}>{error}</Alert>}
-                           
-                           <Box component="form" onSubmit={handleSubmit} noValidate sx={{ width: '100%' }}>
-                               <TextField
-                                   margin="normal"
-                                   required
-                                   fullWidth
-                                   name="password"
-                                   label="New Password"
-                                   type="password"
-                                   id="password"
-                                   autoFocus
-                                   value={password}
-                                   onChange={(e) => setPassword(e.target.value)}
-                               />
-                               <TextField
-                                   margin="normal"
-                                   required
-                                   fullWidth
-                                   name="confirmPassword"
-                                   label="Confirm Password"
-                                   type="password"
-                                   id="confirm-password"
-                                   value={confirmPassword}
-                                   onChange={(e) => setConfirmPassword(e.target.value)}
-                               />
-                               <Button
-                                   type="submit"
-                                   fullWidth
-                                   variant="contained"
-                                   sx={{ mt: 3, mb: 2 }}
-                                   disabled={loading}
-                               >
-                                   {loading ? 'Setting Password...' : 'Set Password'}
-                               </Button>
-                           </Box>
-                       </Box>
-                   </Card>
-               </Box>
-           </Container>
-       );
-   };
-
-   export default FirstLogin;
+2. Add and commit your changes:
+   ```bash
+   git add .
+   git commit -m "Implement drag and drop for user management and tasks"
    ```
 
-4. Create User Profile component (src/components/UserProfile.js)
-
-5. Create Dashboard component (src/components/Dashboard.js)
-
-6. Create Navigation component (src/components/Navigation.js)
-
-7. Create UserList component for user management (src/components/UserList.js)
-
-8. Create KanbanBoard component for task management (src/components/KanbanBoard.js)
-
-9. Create App.js with routing:
-   ```javascript
-   import React, { useEffect } from 'react';
-   import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-   import { ThemeProvider, createTheme } from '@mui/material/styles';
-   import CssBaseline from '@mui/material/CssBaseline';
-   import Login from './components/Login';
-   import Dashboard from './components/Dashboard';
-   import UserList from './components/UserList';
-   import ProjectList from './components/ProjectList';
-   import KanbanBoard from './components/KanbanBoard';
-   import Navigation from './components/Navigation';
-   import FirstLogin from './components/FirstLogin';
-   import UserProfile from './components/UserProfile';
-   import Box from '@mui/material/Box';
-   import 'bootstrap/dist/css/bootstrap.min.css';
-   import './styles.css';
-
-   // Create theme
-   const theme = createTheme({
-     palette: {
-       primary: {
-         main: '#3f51b5',
-       },
-       secondary: {
-         main: '#f50057',
-       },
-     },
-     // Additional theme settings...
-   });
-
-   // Component to check if user needs to change password
-   const FirstLoginCheck = ({ children }) => {
-       const navigate = useNavigate();
-       
-       useEffect(() => {
-           const userStr = localStorage.getItem('user');
-           if (userStr) {
-               const user = JSON.parse(userStr);
-               if (user.isFirstLogin) {
-                   navigate('/first-login');
-               }
-           }
-       }, [navigate]);
-       
-       return <>{children}</>;
-   };
-
-   const PrivateRoute = ({ children }) => {
-       const token = localStorage.getItem('token');
-       return token ? (
-           <>
-               <Navigation />
-               <FirstLoginCheck>
-                   <Box sx={{ mt: 2 }}>{children}</Box>
-               </FirstLoginCheck>
-           </>
-       ) : (
-           <Navigate to="/login" />
-       );
-   };
-
-   function App() {
-       return (
-           <ThemeProvider theme={theme}>
-               <CssBaseline />
-               <Router>
-                   <Routes>
-                       <Route path="/login" element={<Login />} />
-                       <Route
-                           path="/first-login"
-                           element={
-                               <FirstLoginRoute>
-                                   <FirstLogin />
-                               </FirstLoginRoute>
-                           }
-                       />
-                       <Route
-                           path="/dashboard"
-                           element={
-                               <PrivateRoute>
-                                   <Dashboard />
-                               </PrivateRoute>
-                           }
-                       />
-                       <Route
-                           path="/users"
-                           element={
-                               <PrivateRoute>
-                                   <UserList />
-                               </PrivateRoute>
-                           }
-                       />
-                       <Route
-                           path="/projects"
-                           element={
-                               <PrivateRoute>
-                                   <ProjectList />
-                               </PrivateRoute>
-                           }
-                       />
-                       <Route
-                           path="/profile"
-                           element={
-                               <PrivateRoute>
-                                   <UserProfile />
-                               </PrivateRoute>
-                           }
-                       />
-                       <Route
-                           path="/projects/:id/kanban"
-                           element={
-                               <PrivateRoute>
-                                   <KanbanBoard />
-                               </PrivateRoute>
-                           }
-                       />
-                       <Route path="/" element={<Navigate to="/login" />} />
-                   </Routes>
-               </Router>
-           </ThemeProvider>
-       );
-   }
-
-   export default App;
+3. Push the branch to GitHub:
+   ```bash
+   git push origin feature/drag-drop-enhancements
    ```
 
-## Step 4: Testing and Deployment
+4. Create a pull request on GitHub to merge your changes into the main branch
 
-1. Test the application locally:
-   ```
-   npm run install-all
-   npm start
-   ```
+## Conclusion
 
-2. Access the application at http://localhost:3000
-   - Login with admin credentials: username "admin", password "admin"
-   - Create users and test role-based access
-   - Verify first-time login password change
-   - Test user profile management and password changes
+This implementation guide provides a comprehensive walkthrough of creating the Smart Sprint application from scratch. The project includes advanced features like drag and drop interfaces for task and user management, role-specific behaviors, and team-based organization.
 
-3. Deploy to a hosting service (e.g., Heroku, Vercel, etc.)
-
-## Final Notes
-
-- Always ensure MongoDB is properly configured and accessible
-- Keep the JWT_SECRET secure and use a strong secret in production
-- Consider adding additional security measures for a production deployment
-- Regularly backup your database
-- Implement proper error handling and validation throughout the application
+By following these steps, you'll create a modern team management application with a responsive UI and intuitive interactions. The application demonstrates effective use of modern web technologies like React, Material UI, Bootstrap, and drag-and-drop libraries, while maintaining secure authentication and authorization processes.
 
 By following these steps, you should be able to recreate the Smart Sprint project from scratch.
 
@@ -859,4 +717,455 @@ Original Prompts:
 
 6. "kill all the ports and re run the program" (Request to restart the application)
 
-7. "update prompt file to create a step by step replica of this app. update readme as well create a pull request for all banches to merge in main" (Request to update documentation and create a pull request) 
+7. "update prompt file to create a step by step replica of this app. update readme as well create a pull request for all banches to merge in main" (Request to update documentation and create a pull request)
+
+## Enhanced Features Implementation
+
+### 1. Task Management with Drag and Drop
+
+To implement the Kanban board with drag-and-drop functionality:
+
+1. Install the necessary package:
+   ```
+   cd frontend
+   npm install @hello-pangea/dnd
+   ```
+
+2. Update the KanbanBoard component with drag-and-drop functionality:
+
+```javascript
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { 
+  Container, Row, Col, Card, Badge, Button, Modal, Form, Alert, Spinner
+} from 'react-bootstrap';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import API_CONFIG from '../config';
+
+const KanbanBoard = () => {
+  // State variables
+  const [currentUser, setCurrentUser] = useState(null);
+  const [tasks, setTasks] = useState([]);
+  // Other state variables...
+
+  // Handle drag end event
+  const handleDragEnd = async (result) => {
+    if (!result.destination) return;
+    
+    const { draggableId, destination } = result;
+    const newStatus = destination.droppableId;
+    
+    await handleStatusChange(draggableId, newStatus);
+  };
+
+  // Update task status with role-specific behavior
+  const handleStatusChange = async (taskId, newStatus) => {
+    try {
+      // For developers, don't allow direct move to Completed
+      if (currentUser && currentUser.role === 'Developer' && newStatus === 'Completed') {
+        newStatus = 'Review';
+      }
+      
+      await axios.patch(`${API_CONFIG.TASKS_ENDPOINT}/${taskId}/status`, { status: newStatus });
+      fetchTasks();
+    } catch (err) {
+      console.error('Error updating task status:', err);
+      setError('Failed to update task status. Please try again later.');
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
+  // Auto-assign team based on assignee
+  const getAssigneeTeam = () => {
+    if (!formData.assignee) return null;
+    const assignedUser = users.find(user => user._id === formData.assignee);
+    return assignedUser ? assignedUser.team : null;
+  };
+
+  // Submit task with team from assignee
+  const handleSubmit = async () => {
+    try {
+      // Get the team from the selected assignee
+      const team = getAssigneeTeam();
+      
+      if (!team) {
+        setError('Please select a valid assignee');
+        setTimeout(() => setError(''), 3000);
+        return;
+      }
+      
+      const taskData = {
+        ...formData,
+        team,
+        projectId: selectedProject
+      };
+
+      // Rest of submission logic...
+    } catch (err) {
+      // Error handling...
+    }
+  };
+
+  // Render Kanban board with drag-and-drop
+  return (
+    <Container fluid>
+      {/* Project selection and other UI elements */}
+      
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <Row>
+          {getStatusColumns().map(column => (
+            <Col key={column.id} md style={{ minWidth: '250px' }}>
+              <Card className="mb-4">
+                <Card.Header className="text-center bg-light">
+                  <h5 className="mb-0">{column.title}</h5>
+                </Card.Header>
+                <Droppable droppableId={column.id}>
+                  {(provided) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                      className="p-2"
+                      style={{ minHeight: '500px' }}
+                    >
+                      {tasks
+                        .filter(task => task.status === column.id)
+                        .map((task, index) => (
+                          <Draggable key={task._id} draggableId={task._id} index={index}>
+                            {(provided) => (
+                              <Card 
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                {...provided.dragHandleProps}
+                                className="mb-2 task-card"
+                              >
+                                {/* Task card content */}
+                              </Card>
+                            )}
+                          </Draggable>
+                        ))}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      </DragDropContext>
+      
+      {/* Task dialog */}
+    </Container>
+  );
+};
+
+export default KanbanBoard;
+```
+
+3. Add a specific endpoint in the backend to handle status updates:
+
+```javascript
+// In backend/routes/tasks.js
+// Update task status only
+router.patch('/:taskId/status', auth, async (req, res) => {
+    try {
+        const { taskId } = req.params;
+        const { status } = req.body;
+        
+        if (!status) {
+            return res.status(400).json({ error: 'Status is required' });
+        }
+        
+        // Find the task
+        const task = await Task.findById(taskId);
+        if (!task) {
+            return res.status(404).json({ error: 'Task not found' });
+        }
+        
+        // Check if project exists
+        const project = await Project.findById(task.project);
+        if (!project) {
+            return res.status(404).json({ error: 'Project not found' });
+        }
+        
+        // Check permissions
+        if (req.user.role === 'Developer') {
+            // Must be the assignee
+            if (task.assignee && task.assignee.toString() !== req.user._id.toString()) {
+                return res.status(403).json({ error: 'You can only update tasks assigned to you' });
+            }
+        } else if (req.user.role === 'Project Manager') {
+            // Project Manager must be a PM for this project
+            const isPMMember = project.members.some(member => 
+                member.userId.toString() === req.user._id.toString() && 
+                member.role === 'Project Manager'
+            );
+            
+            if (!isPMMember) {
+                return res.status(403).json({ error: 'You must be a Project Manager of this project to update tasks' });
+            }
+        } else if (req.user.role !== 'Admin') {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+        
+        // Update status
+        task.status = status;
+        task.updatedAt = Date.now();
+        await task.save();
+        
+        // Populate references
+        const populatedTask = await Task.findById(task._id)
+            .populate('assignee', 'username team level role')
+            .populate('assignedBy', 'username');
+            
+        res.json(populatedTask);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+```
+
+### 2. Enhanced User Management with Team Organization
+
+To implement the drag-and-drop user management system:
+
+1. Update the UserList component to include drag-and-drop team organization:
+
+```javascript
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+// ... other imports
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import API_CONFIG from '../config';
+
+const UserList = () => {
+    // State variables
+    const [users, setUsers] = useState([]);
+    const [groupedUsers, setGroupedUsers] = useState({});
+    const [displayMode, setDisplayMode] = useState('list'); // 'list' or 'teams'
+    // Other state variables...
+
+    useEffect(() => {
+        // Group users by team when users or displayMode changes
+        if (displayMode === 'teams') {
+            const grouped = users.reduce((acc, user) => {
+                const team = user.team || 'Unassigned';
+                if (!acc[team]) {
+                    acc[team] = [];
+                }
+                acc[team].push(user);
+                return acc;
+            }, {});
+            setGroupedUsers(grouped);
+        }
+    }, [users, displayMode]);
+
+    // Handle role-specific form behavior
+    const handleRoleChange = (e) => {
+        const selectedRole = e.target.value;
+        
+        if (selectedRole === 'Admin' || selectedRole === 'Project Manager') {
+            setFormData({
+                ...formData,
+                role: selectedRole,
+                team: selectedRole === 'Admin' ? 'admin' : 'pm',
+                level: selectedRole === 'Admin' ? 'admin' : 'pm'
+            });
+        } else {
+            setFormData({
+                ...formData,
+                role: selectedRole
+            });
+        }
+    };
+
+    // Handle drag end event
+    const handleDragEnd = (result) => {
+        const { destination, source, draggableId } = result;
+        
+        // If there's no destination or the item is dropped in the same place
+        if (!destination || 
+            (destination.droppableId === source.droppableId && 
+             destination.index === source.index)) {
+            return;
+        }
+        
+        if (displayMode === 'list') {
+            // Reordering in the list view
+            const newUsers = Array.from(users);
+            const [movedUser] = newUsers.splice(source.index, 1);
+            newUsers.splice(destination.index, 0, movedUser);
+            setUsers(newUsers);
+        } else {
+            // Moving between teams in team view
+            const userId = draggableId;
+            const user = users.find(u => u._id === userId);
+            const newTeam = destination.droppableId === 'Unassigned' ? 'None' : destination.droppableId;
+            
+            // Only update if the team has changed
+            if (user && user.team !== newTeam) {
+                updateUserTeam(userId, newTeam);
+            }
+        }
+    };
+
+    // Update user's team in the database
+    const updateUserTeam = async (userId, newTeam) => {
+        try {
+            const token = localStorage.getItem('token');
+            const user = users.find(u => u._id === userId);
+            
+            await axios.put(
+                `${API_CONFIG.BASE_URL}${API_CONFIG.USERS_ENDPOINT}/${userId}`, 
+                { ...user, team: newTeam },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            
+            // Update local state
+            setUsers(users.map(u => 
+                u._id === userId ? { ...u, team: newTeam } : u
+            ));
+        } catch (error) {
+            console.error('Error updating user team:', error);
+        }
+    };
+
+    // Render team cards for the team view
+    const renderTeamCards = () => {
+        // Get all possible teams including ones without users
+        const allTeams = [
+            'Design', 'Database', 'Backend', 'Frontend', 
+            'DevOps', 'Tester/Security', 'admin', 'pm', 'None'
+        ];
+        
+        return (
+            <DragDropContext onDragEnd={handleDragEnd}>
+                <Row>
+                    {allTeams.map(team => {
+                        const teamName = team === 'None' ? 'Unassigned' : team;
+                        const teamUsers = groupedUsers[team] || [];
+                        
+                        return (
+                            <Col md={4} key={team} className="mb-4">
+                                <Card className="h-100 shadow-sm">
+                                    <Card.Header className="d-flex justify-content-between align-items-center">
+                                        <h5 className="mb-0">
+                                            <Badge bg={getTeamBadgeColor(team)} className="me-2">
+                                                {teamName}
+                                            </Badge>
+                                            <small>{teamUsers.length} members</small>
+                                        </h5>
+                                    </Card.Header>
+                                    <Droppable droppableId={team}>
+                                        {(provided) => (
+                                            <div
+                                                ref={provided.innerRef}
+                                                {...provided.droppableProps}
+                                                className="p-2"
+                                                style={{ minHeight: '150px' }}
+                                            >
+                                                {teamUsers.map((user, index) => (
+                                                    <Draggable 
+                                                        key={user._id} 
+                                                        draggableId={user._id} 
+                                                        index={index}
+                                                    >
+                                                        {(provided) => (
+                                                            <Card
+                                                                ref={provided.innerRef}
+                                                                {...provided.draggableProps}
+                                                                {...provided.dragHandleProps}
+                                                                className="mb-2 p-2 border"
+                                                            >
+                                                                {/* User card content */}
+                                                            </Card>
+                                                        )}
+                                                    </Draggable>
+                                                ))}
+                                                {provided.placeholder}
+                                            </div>
+                                        )}
+                                    </Droppable>
+                                </Card>
+                            </Col>
+                        );
+                    })}
+                </Row>
+            </DragDropContext>
+        );
+    };
+
+    // Render view toggle and content
+    return (
+        <Container fluid className="p-4">
+            <Card className="shadow-sm mb-4">
+                <Card.Body>
+                    <Row className="align-items-center mb-3">
+                        <Col md={6}>
+                            <h2 className="mb-0">User Management</h2>
+                        </Col>
+                        <Col md={3} className="text-md-end mb-2 mb-md-0">
+                            <Button 
+                                variant={displayMode === 'list' ? "contained" : "outlined"}
+                                className="me-2"
+                                onClick={() => setDisplayMode('list')}
+                            >
+                                List View
+                            </Button>
+                            <Button 
+                                variant={displayMode === 'teams' ? "contained" : "outlined"}
+                                onClick={() => setDisplayMode('teams')}
+                            >
+                                Team View
+                            </Button>
+                        </Col>
+                        <Col md={3} className="text-md-end">
+                            <Button 
+                                variant="contained" 
+                                color="primary" 
+                                onClick={() => handleOpen()}
+                            >
+                                Add User
+                            </Button>
+                        </Col>
+                    </Row>
+                    
+                    {displayMode === 'list' ? renderListView() : renderTeamCards()}
+                </Card.Body>
+            </Card>
+
+            {/* User dialog */}
+        </Container>
+    );
+};
+
+export default UserList;
+```
+
+### 3. GitHub Updates and Branch Management
+
+To properly maintain your code in GitHub, follow these steps:
+
+1. Create a new branch for your feature development:
+   ```bash
+   git checkout -b feature/drag-drop-functionality
+   ```
+
+2. Add your changes:
+   ```bash
+   git add .
+   ```
+
+3. Commit with a descriptive message:
+   ```bash
+   git commit -m "Add drag and drop functionality for tasks and user management"
+   ```
+
+4. Push to GitHub:
+   ```bash
+   git push origin feature/drag-drop-functionality
+   ```
+
+5. Create a pull request in GitHub to merge your changes to the main branch
+
+6. After review, merge the changes to complete the feature addition 

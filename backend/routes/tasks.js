@@ -397,6 +397,64 @@ router.patch('/:taskId', auth, (req, res, next) => {
     }
 });
 
+// Update task status only
+router.patch('/:taskId/status', auth, async (req, res) => {
+    try {
+        const { taskId } = req.params;
+        const { status } = req.body;
+        
+        if (!status) {
+            return res.status(400).json({ error: 'Status is required' });
+        }
+        
+        // Find the task
+        const task = await Task.findById(taskId);
+        if (!task) {
+            return res.status(404).json({ error: 'Task not found' });
+        }
+        
+        // Check if project exists
+        const project = await Project.findById(task.project);
+        if (!project) {
+            return res.status(404).json({ error: 'Project not found' });
+        }
+        
+        // Check permissions
+        if (req.user.role === 'Developer') {
+            // Must be the assignee
+            if (task.assignee && task.assignee.toString() !== req.user._id.toString()) {
+                return res.status(403).json({ error: 'You can only update tasks assigned to you' });
+            }
+        } else if (req.user.role === 'Project Manager') {
+            // Project Manager must be a PM for this project
+            const isPMMember = project.members.some(member => 
+                member.userId.toString() === req.user._id.toString() && 
+                member.role === 'Project Manager'
+            );
+            
+            if (!isPMMember) {
+                return res.status(403).json({ error: 'You must be a Project Manager of this project to update tasks' });
+            }
+        } else if (req.user.role !== 'Admin') {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+        
+        // Update status
+        task.status = status;
+        task.updatedAt = Date.now();
+        await task.save();
+        
+        // Populate references
+        const populatedTask = await Task.findById(task._id)
+            .populate('assignee', 'username team level role')
+            .populate('assignedBy', 'username');
+            
+        res.json(populatedTask);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
 // Delete task
 router.delete('/:taskId', auth, async (req, res) => {
     try {

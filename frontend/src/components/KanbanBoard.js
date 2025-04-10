@@ -26,16 +26,23 @@ const KanbanBoard = () => {
   const [showTaskDialog, setShowTaskDialog] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [error, setError] = useState('');
+  const [currentUser, setCurrentUser] = useState(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     assignee: '',
-    team: '',
     priority: 'Medium',
     status: 'Todo',
-    stage: 'Development',
     dueDate: new Date().toISOString().split('T')[0]
   });
+
+  // Fetch current user info
+  useEffect(() => {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      setCurrentUser(JSON.parse(userStr));
+    }
+  }, []);
 
   // Fetch projects, tasks, and users on component mount
   useEffect(() => {
@@ -75,7 +82,7 @@ const KanbanBoard = () => {
   const fetchTasks = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`${API_CONFIG.TASKS_ENDPOINT}?projectId=${selectedProject}`);
+      const response = await axios.get(`${API_CONFIG.TASKS_ENDPOINT}/project/${selectedProject}`);
       setTasks(response.data);
       setLoading(false);
     } catch (err) {
@@ -106,10 +113,8 @@ const KanbanBoard = () => {
         title: task.title || '',
         description: task.description || '',
         assignee: task.assignee?._id || '',
-        team: task.team || '',
         priority: task.priority || 'Medium',
         status: task.status || 'Todo',
-        stage: task.stage || 'Development',
         dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
       });
     } else {
@@ -118,10 +123,8 @@ const KanbanBoard = () => {
         title: '',
         description: '',
         assignee: '',
-        team: '',
         priority: 'Medium',
         status: 'Todo',
-        stage: 'Development',
         dueDate: new Date().toISOString().split('T')[0]
       });
     }
@@ -140,12 +143,34 @@ const KanbanBoard = () => {
     });
   };
 
+  const getAssigneeTeam = () => {
+    if (!formData.assignee) return null;
+    const assignedUser = users.find(user => user._id === formData.assignee);
+    return assignedUser ? assignedUser.team : null;
+  };
+
   const handleSubmit = async () => {
     try {
+      // Get the team from the selected assignee
+      const team = getAssigneeTeam();
+      
+      if (!team) {
+        setError('Please select a valid assignee');
+        setTimeout(() => setError(''), 3000);
+        return;
+      }
+      
       const taskData = {
         ...formData,
+        team,
         projectId: selectedProject
       };
+
+      if (!taskData.title) {
+        setError('Title is required');
+        setTimeout(() => setError(''), 3000);
+        return;
+      }
 
       if (selectedTask) {
         await axios.put(`${API_CONFIG.TASKS_ENDPOINT}/${selectedTask._id}`, taskData);
@@ -157,17 +182,24 @@ const KanbanBoard = () => {
       handleCloseTaskDialog();
     } catch (err) {
       console.error('Error saving task:', err);
-      setError('Failed to save task. Please try again later.');
+      setError(err.response?.data?.error || 'Failed to save task. Please try again later.');
+      setTimeout(() => setError(''), 3000);
     }
   };
 
   const handleStatusChange = async (taskId, newStatus) => {
     try {
+      // For developers, don't allow direct move to Completed
+      if (currentUser && currentUser.role === 'Developer' && newStatus === 'Completed') {
+        newStatus = 'Review';
+      }
+      
       await axios.patch(`${API_CONFIG.TASKS_ENDPOINT}/${taskId}/status`, { status: newStatus });
       fetchTasks();
     } catch (err) {
       console.error('Error updating task status:', err);
       setError('Failed to update task status. Please try again later.');
+      setTimeout(() => setError(''), 3000);
     }
   };
 
@@ -187,6 +219,7 @@ const KanbanBoard = () => {
     } catch (err) {
       console.error('Error deleting task:', err);
       setError('Failed to delete task. Please try again later.');
+      setTimeout(() => setError(''), 3000);
     }
   };
 
@@ -285,14 +318,14 @@ const KanbanBoard = () => {
                                       {task.priority}
                                     </Badge>
                                     {' '}
-                                    <Badge bg="info">{task.stage}</Badge>
+                                    <Badge bg="secondary">{task.team}</Badge>
                                   </div>
                                   <div className="text-muted small">
-                                    Due: {new Date(task.dueDate).toLocaleDateString()}
+                                    Due: {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No due date'}
                                   </div>
                                   {task.assignee && (
                                     <div className="mt-2">
-                                      Assignee: {task.assignee.username}
+                                      Assignee: {task.assignee.username} ({task.assignee.team})
                                     </div>
                                   )}
                                   <div className="mt-2 d-flex justify-content-end">
@@ -330,7 +363,7 @@ const KanbanBoard = () => {
           <Row>
             <Col md={6}>
               <Form.Group className="mb-3">
-                <Form.Label>Title</Form.Label>
+                <Form.Label>Title <span className="text-danger">*</span></Form.Label>
                 <Form.Control
                   type="text"
                   name="title"
@@ -342,16 +375,17 @@ const KanbanBoard = () => {
             </Col>
             <Col md={6}>
               <Form.Group className="mb-3">
-                <Form.Label>Assignee</Form.Label>
+                <Form.Label>Assignee <span className="text-danger">*</span></Form.Label>
                 <Form.Select
                   name="assignee"
                   value={formData.assignee}
                   onChange={handleChange}
+                  required
                 >
                   <option value="">Select Assignee</option>
                   {users.map(user => (
                     <option key={user._id} value={user._id}>
-                      {user.username} ({user.role})
+                      {user.username} - {user.team} ({user.role})
                     </option>
                   ))}
                 </Form.Select>
@@ -375,23 +409,6 @@ const KanbanBoard = () => {
           <Row>
             <Col md={6}>
               <Form.Group className="mb-3">
-                <Form.Label>Team</Form.Label>
-                <Form.Select
-                  name="team"
-                  value={formData.team}
-                  onChange={handleChange}
-                >
-                  <option value="">Select Team</option>
-                  <option value="Frontend">Frontend</option>
-                  <option value="Backend">Backend</option>
-                  <option value="Design">Design</option>
-                  <option value="QA">QA</option>
-                  <option value="DevOps">DevOps</option>
-                </Form.Select>
-              </Form.Group>
-            </Col>
-            <Col md={6}>
-              <Form.Group className="mb-3">
                 <Form.Label>Due Date</Form.Label>
                 <Form.Control
                   type="date"
@@ -401,10 +418,7 @@ const KanbanBoard = () => {
                 />
               </Form.Group>
             </Col>
-          </Row>
-          
-          <Row>
-            <Col md={4}>
+            <Col md={6}>
               <Form.Group className="mb-3">
                 <Form.Label>Priority</Form.Label>
                 <Form.Select
@@ -419,24 +433,10 @@ const KanbanBoard = () => {
                 </Form.Select>
               </Form.Group>
             </Col>
-            <Col md={4}>
-              <Form.Group className="mb-3">
-                <Form.Label>Stage</Form.Label>
-                <Form.Select
-                  name="stage"
-                  value={formData.stage}
-                  onChange={handleChange}
-                >
-                  <option value="Requirements">Requirements</option>
-                  <option value="Design">Design</option>
-                  <option value="Development">Development</option>
-                  <option value="Testing">Testing</option>
-                  <option value="Deployment">Deployment</option>
-                  <option value="Maintenance">Maintenance</option>
-                </Form.Select>
-              </Form.Group>
-            </Col>
-            <Col md={4}>
+          </Row>
+          
+          <Row>
+            <Col md={6}>
               <Form.Group className="mb-3">
                 <Form.Label>Status</Form.Label>
                 <Form.Select
@@ -451,6 +451,18 @@ const KanbanBoard = () => {
                   <option value="Completed">Completed</option>
                 </Form.Select>
               </Form.Group>
+            </Col>
+            <Col md={6}>
+              {getAssigneeTeam() && (
+                <Form.Group className="mb-3">
+                  <Form.Label>Team (From Assignee)</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={getAssigneeTeam() || ''}
+                    disabled
+                  />
+                </Form.Group>
+              )}
             </Col>
           </Row>
         </Modal.Body>
