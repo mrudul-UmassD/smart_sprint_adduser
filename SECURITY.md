@@ -26,6 +26,11 @@ We take the security of Smart Sprint seriously. If you believe you've found a se
 - A confirmation of your report within 48 hours
 - An assessment of the vulnerability within 7 days
 - A plan for addressing the vulnerability
+
+
+
+
+
 - Regular updates on our progress
 - Credit for the discovery (unless you prefer to remain anonymous)
 

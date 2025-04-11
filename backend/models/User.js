@@ -4,13 +4,16 @@ const bcrypt = require('bcryptjs');
 const userSchema = new mongoose.Schema({
     username: {
         type: String,
-        required: true,
+        required: [true, 'Username is required'],
         unique: true,
-        trim: true
+        trim: true,
+        minlength: [3, 'Username must be at least 3 characters long'],
+        maxlength: [30, 'Username cannot exceed 30 characters']
     },
     password: {
         type: String,
-        required: true
+        required: [true, 'Password is required'],
+        minlength: [8, 'Password must be at least 8 characters long']
     },
     isFirstLogin: {
         type: Boolean,
@@ -18,24 +21,25 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['Admin', 'Project Manager', 'Developer'],
-        required: true
+        enum: ['Admin', 'Project Manager', 'Developer', 'Designer'],
+        required: [true, 'Role is required']
     },
     team: {
         type: String,
-        enum: ['Design', 'Database', 'Backend', 'Frontend', 'DevOps', 'Tester/Security', 'None', 'admin', 'pm'],
-        required: true,
-        default: 'None'
+        enum: ['Frontend', 'Backend', 'Design', 'DevOps', 'QA'],
+        required: function() {
+            return ['Developer', 'Designer'].includes(this.role);
+        }
     },
     level: {
         type: String,
-        enum: ['Lead', 'Senior', 'Dev', 'Junior', 'admin', 'pm'],
-        required: true,
-        default: 'Dev'
+        enum: ['Junior', 'Mid', 'Senior', 'Lead'],
+        required: function() {
+            return ['Developer', 'Designer'].includes(this.role);
+        }
     },
     profilePicture: {
-        type: String,
-        default: ''
+        type: String
     },
     fullName: {
         type: String,
@@ -45,10 +49,15 @@ const userSchema = new mongoose.Schema({
         type: String,
         default: ''
     },
+    lastLogin: {
+        type: Date
+    },
     createdAt: {
         type: Date,
         default: Date.now
     }
+}, {
+    timestamps: true
 });
 
 // Hash the password before saving
@@ -74,6 +83,29 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
     } catch (error) {
         throw error;
     }
+};
+
+// Pre-save middleware to ensure team and level are set based on role
+userSchema.pre('save', function(next) {
+    if (this.isModified('role')) {
+        if (!['Developer', 'Designer'].includes(this.role)) {
+            this.team = undefined;
+            this.level = undefined;
+        }
+    }
+    next();
+});
+
+// Method to check if user has required permissions
+userSchema.methods.hasPermission = function(requiredRole) {
+    const roleHierarchy = {
+        'Admin': 3,
+        'Project Manager': 2,
+        'Developer': 1,
+        'Designer': 1
+    };
+
+    return roleHierarchy[this.role] >= roleHierarchy[requiredRole];
 };
 
 module.exports = mongoose.model('User', userSchema); 
