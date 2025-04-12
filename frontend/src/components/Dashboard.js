@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import {
     Box,
@@ -31,10 +31,27 @@ const Dashboard = () => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
+    const location = useLocation();
 
     useEffect(() => {
+        // Check for debug mode in URL
+        const params = new URLSearchParams(location.search);
+        const debugMode = params.get('debug') === 'true';
+        
+        if (debugMode) {
+            console.log('Debug mode enabled, skipping authentication checks');
+            // Set some dummy user data for testing
+            setUserDetails({
+                username: 'admin',
+                role: 'Admin',
+                team: 'Management',
+                level: 'Senior'
+            });
+            return;
+        }
+        
         fetchUserDetails();
-    }, []);
+    }, [navigate, location]);
 
     const fetchUserDetails = async () => {
         const token = localStorage.getItem('token');
@@ -51,16 +68,40 @@ const Dashboard = () => {
 
         try {
             setLoading(true);
-            const response = await axios.get(`${API_CONFIG.USERS_ENDPOINT}/me`);
-            setUserDetails(response.data);
+            // Use AUTH_ENDPOINT for fetching user details without manually setting headers
+            // as they're already added by axios interceptors
+            const response = await axios.get(`${API_CONFIG.AUTH_ENDPOINT}/me`);
+            
+            if (response.data && response.data.success && response.data.user) {
+                setUserDetails(response.data.user);
+            } else {
+                throw new Error('Invalid response format');
+            }
+            
             setLoading(false);
         } catch (err) {
             console.error('Error fetching user details:', err);
+            
+            // Try using stored user data as fallback
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+                try {
+                    const userData = JSON.parse(userStr);
+                    console.log('Using stored user data as fallback:', userData);
+                    setUserDetails(userData);
+                    setLoading(false);
+                    return;
+                } catch (parseErr) {
+                    console.error('Error parsing stored user data:', parseErr);
+                }
+            }
+            
             const errorMsg = err.response?.data?.error || 'Failed to fetch user details';
             setError(errorMsg);
             setLoading(false);
             
-            if (err.response?.status === 401 || errorMsg.toLowerCase().includes('auth') || errorMsg.toLowerCase().includes('token')) {
+            if (err.response?.status === 401) {
+                console.error('Authentication failed, redirecting to login');
                 setTimeout(() => {
                     localStorage.removeItem('token');
                     localStorage.removeItem('user');

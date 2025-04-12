@@ -8,7 +8,7 @@
     "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
     "backend": "cd backend && npm run dev",
     "frontend": "cd frontend && npm start",
-    "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "install-all": "echo \"Installing root dependencies...\" && npm install && echo \"Installing backend dependencies...\" && cd backend && npm install && echo \"Installing frontend dependencies...\" && cd ../frontend && npm install && echo \"All dependencies installed successfully!\"",
     "heroku-postbuild": "cd frontend && npm install && npm run build"
   },
   "keywords": [

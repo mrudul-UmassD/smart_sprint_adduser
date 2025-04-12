@@ -11,28 +11,47 @@ router.post('/login', async (req, res) => {
         const { username, password } = req.body;
         
         if (!username || !password) {
-            return res.status(400).json({ error: 'Username and password are required' });
+            return res.status(400).json({ 
+                success: false,
+                error: 'Username and password are required' 
+            });
         }
 
         const user = await User.findOne({ username });
         
         if (!user) {
-            return res.status(401).json({ error: 'Invalid username or password' });
+            return res.status(401).json({ 
+                success: false,
+                error: 'Invalid username or password' 
+            });
         }
 
         // Check password
         const isMatch = await user.comparePassword(password);
         if (!isMatch) {
-            return res.status(401).json({ error: 'Invalid username or password' });
+            return res.status(401).json({ 
+                success: false,
+                error: 'Invalid username or password' 
+            });
         }
 
+        // Update user's last login
+        user.lastLogin = new Date();
+        await user.save();
+
+        // Generate token with both id and _id for compatibility
         const token = jwt.sign(
-            { _id: user._id.toString(), role: user.role },
+            { 
+                id: user._id.toString(), 
+                _id: user._id.toString(), 
+                role: user.role 
+            },
             process.env.JWT_SECRET,
             { expiresIn: '24h' }
         );
 
         res.json({ 
+            success: true,
             user: {
                 _id: user._id,
                 username: user.username,
@@ -48,7 +67,36 @@ router.post('/login', async (req, res) => {
             token 
         });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error('Login error:', error);
+        res.status(500).json({ 
+            success: false,
+            error: error.message 
+        });
+    }
+});
+
+// Get current user details
+router.get('/me', auth, async (req, res) => {
+    try {
+        const user = await User.findById(req.user._id).select('-password');
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                error: 'User not found'
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            user
+        });
+    } catch (error) {
+        console.error('Error fetching user details:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Server error'
+        });
     }
 });
 

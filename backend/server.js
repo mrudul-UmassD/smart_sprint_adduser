@@ -77,12 +77,18 @@ app.use(errorHandler);
 // Global error handlers
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err);
-  process.exit(1);
+  // Only exit in development - in production, try to continue
+  if (process.env.NODE_ENV !== 'production') {
+    process.exit(1);
+  }
 });
 
 process.on('unhandledRejection', (err) => {
   console.error('Unhandled Rejection:', err);
-  process.exit(1);
+  // Only exit in development - in production, try to continue
+  if (process.env.NODE_ENV !== 'production') {
+    process.exit(1);
+  }
 });
 
 // Create server variable to allow graceful shutdown
@@ -97,9 +103,32 @@ mongoose.connect(process.env.MONGODB_URI, {
   console.log('Connected to MongoDB');
   // Start server
   const PORT = process.env.PORT || 5000;
-  server = app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-  });
+  
+  // Create server with error handling
+  const startServer = () => {
+    try {
+      server = app.listen(PORT, () => {
+        console.log(`Server is running on port ${PORT}`);
+      });
+      
+      // Handle server errors
+      server.on('error', (error) => {
+        if (error.code === 'EADDRINUSE') {
+          console.log(`Port ${PORT} is already in use, trying again in 10 seconds...`);
+          setTimeout(() => {
+            server.close();
+            startServer();
+          }, 10000);
+        } else {
+          console.error('Server error:', error);
+        }
+      });
+    } catch (error) {
+      console.error('Error starting server:', error);
+    }
+  };
+  
+  startServer();
 })
 .catch((error) => {
   console.error('MongoDB connection error:', error);

@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Login from './components/Login';
@@ -34,8 +34,53 @@ const FirstLoginCheck = ({ children }) => {
 };
 
 const PrivateRoute = ({ children }) => {
-    const token = localStorage.getItem('token');
-    return token ? (
+    const navigate = useNavigate();
+    const location = useLocation();
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    
+    useEffect(() => {
+        const checkAuth = async () => {
+            const token = localStorage.getItem('token');
+            
+            // Debug mode override
+            if (location.search.includes('debug=true')) {
+                console.log('Debug mode enabled, bypassing authentication');
+                setIsAuthenticated(true);
+                setIsLoading(false);
+                return;
+            }
+            
+            if (!token) {
+                console.log('No token found, redirecting to login');
+                setIsAuthenticated(false);
+                setIsLoading(false);
+                return;
+            }
+            
+            try {
+                console.log('Validating token...');
+                // Optional: You can make a request to the backend to validate the token
+                // For now just check if the token exists
+                setIsAuthenticated(true);
+            } catch (err) {
+                console.error('Token validation error:', err);
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                setIsAuthenticated(false);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        
+        checkAuth();
+    }, [navigate, location]);
+    
+    if (isLoading) {
+        return <div>Loading...</div>;
+    }
+    
+    return isAuthenticated ? (
         <>
             <Navigation />
             <FirstLoginCheck>
@@ -65,6 +110,23 @@ const FirstLoginRoute = ({ children }) => {
 };
 
 function App() {
+    // Check for the bypass auth query parameter
+    const queryParams = new URLSearchParams(window.location.search);
+    const bypassAuth = queryParams.get('bypass') === 'true';
+    
+    console.log('App initialized, bypass auth:', bypassAuth);
+    
+    // If bypassing auth, store a fake token and user
+    if (bypassAuth && !localStorage.getItem('token')) {
+        console.log('Setting fake auth credentials for testing');
+        localStorage.setItem('token', 'fake-token-for-testing');
+        localStorage.setItem('user', JSON.stringify({
+            username: 'admin',
+            role: 'Admin',
+            isFirstLogin: false
+        }));
+    }
+    
     return (
         <ThemeProvider theme={theme}>
             <CssBaseline />

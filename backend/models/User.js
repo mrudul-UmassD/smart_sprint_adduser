@@ -28,14 +28,36 @@ const userSchema = new mongoose.Schema({
         type: String,
         enum: ['Frontend', 'Backend', 'Design', 'DevOps', 'QA'],
         required: function() {
+            // Only required for Developer and Designer roles
             return ['Developer', 'Designer'].includes(this.role);
+        },
+        // This ensures the field is not set for Admin and Project Manager roles
+        validate: {
+            validator: function(value) {
+                if (['Admin', 'Project Manager'].includes(this.role)) {
+                    return value === undefined || value === null;
+                }
+                return true;
+            },
+            message: 'Team should not be set for Admin or Project Manager roles'
         }
     },
     level: {
         type: String,
         enum: ['Junior', 'Mid', 'Senior', 'Lead'],
         required: function() {
+            // Only required for Developer and Designer roles
             return ['Developer', 'Designer'].includes(this.role);
+        },
+        // This ensures the field is not set for Admin and Project Manager roles
+        validate: {
+            validator: function(value) {
+                if (['Admin', 'Project Manager'].includes(this.role)) {
+                    return value === undefined || value === null;
+                }
+                return true;
+            },
+            message: 'Level should not be set for Admin or Project Manager roles'
         }
     },
     profilePicture: {
@@ -85,13 +107,11 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
     }
 };
 
-// Pre-save middleware to ensure team and level are set based on role
+// Pre-save middleware to ensure team and level are unset based on role
 userSchema.pre('save', function(next) {
-    if (this.isModified('role')) {
-        if (!['Developer', 'Designer'].includes(this.role)) {
-            this.team = undefined;
-            this.level = undefined;
-        }
+    if (['Admin', 'Project Manager'].includes(this.role)) {
+        this.team = undefined;
+        this.level = undefined;
     }
     next();
 });

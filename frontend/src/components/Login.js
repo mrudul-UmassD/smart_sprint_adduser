@@ -32,30 +32,63 @@ const Login = () => {
         }
         
         try {
-            console.log('Attempting login with username:', username);
+            console.log('Attempting login with:', { username, password });
+            console.log('API endpoint:', `${API_CONFIG.BASE_URL}${API_CONFIG.AUTH_ENDPOINT}/login`);
+            
+            // Don't use AUTH_ENDPOINT directly with axios.post as it already has the base URL
             const response = await axios.post(`${API_CONFIG.AUTH_ENDPOINT}/login`, { 
                 username,
                 password
             });
+            
             console.log('Login successful, response:', response.data);
+            
+            // Check if token is present
+            if (!response.data.token) {
+                throw new Error('No token received from server');
+            }
             
             // Store the token and user details
             localStorage.setItem('token', response.data.token);
-            localStorage.setItem('user', JSON.stringify(response.data.user));
+            
+            // Store user object in local storage
+            const userData = response.data.user || {
+                username,
+                role: 'Admin', // Fallback value
+                isFirstLogin: false
+            };
+            localStorage.setItem('user', JSON.stringify(userData));
             
             // Set default auth headers for all future requests
-            axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
-            axios.defaults.headers.common['x-auth-token'] = response.data.token;
+            // These are now handled by the axios interceptor in axiosConfig.js
             
-            // Check if it's the user's first login
-            if (response.data.user.isFirstLogin) {
-                navigate('/first-login');
-            } else {
-                navigate('/dashboard');
-            }
+            // Verify localStorage was set correctly
+            console.log('localStorage token:', localStorage.getItem('token'));
+            console.log('localStorage user:', localStorage.getItem('user'));
+            
+            // Small delay before redirect to ensure state is updated
+            setTimeout(() => {
+                // Check if it's the user's first login
+                if (userData.isFirstLogin) {
+                    console.log('Redirecting to first login page');
+                    navigate('/first-login');
+                } else {
+                    console.log('Redirecting to dashboard');
+                    navigate('/dashboard');
+                }
+            }, 100);
         } catch (err) {
             console.error('Login error:', err);
-            setError(err.response?.data?.error || 'Login failed. Please check your credentials.');
+            console.error('Response data:', err.response?.data);
+            console.error('Status code:', err.response?.status);
+            
+            // Show appropriate error message
+            if (err.message === 'Network Error') {
+                setError('Unable to connect to the server. Please check your connection and try again.');
+            } else {
+                setError(err.response?.data?.error || 'Login failed. Please check your credentials.');
+            }
+            
             setLoading(false);
         }
     };

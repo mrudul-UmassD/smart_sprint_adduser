@@ -2,6 +2,24 @@
 
 Smart Sprint is a comprehensive project management application built with the MERN stack (MongoDB, Express.js, React.js, Node.js). It provides features for task management, team collaboration, and project analytics.
 
+## Quick Start
+
+```bash
+# Clone repository
+git clone https://github.com/yourusername/smart-sprint.git
+cd smart-sprint
+
+# Install all dependencies
+npm run install-all
+
+# Create .env file in backend directory with:
+# MONGODB_URI=your_mongodb_connection_string
+# JWT_SECRET=your_jwt_secret
+
+# Start both frontend and backend
+npm run dev
+```
+
 ## Features
 
 - User Authentication and Authorization
@@ -47,25 +65,38 @@ Smart Sprint is a comprehensive project management application built with the ME
 
 ### Installation
 
+#### Option 1: Install all dependencies with a single command (Recommended)
+```bash
+# From the root directory
+npm run install-all
+```
+This will install dependencies for the root, backend, and frontend in one go.
+
+#### Option 2: Install dependencies separately
 1. Clone the repository:
 ```bash
 git clone https://github.com/yourusername/smart-sprint.git
 cd smart-sprint
 ```
 
-2. Install backend dependencies:
+2. Install root dependencies:
+```bash
+npm install
+```
+
+3. Install backend dependencies:
 ```bash
 cd backend
 npm install
 ```
 
-3. Install frontend dependencies:
+4. Install frontend dependencies:
 ```bash
 cd ../frontend
 npm install
 ```
 
-4. Create a .env file in the backend directory:
+5. Create a .env file in the backend directory:
 ```env
 MONGODB_URI=your_mongodb_connection_string
 JWT_SECRET=your_jwt_secret
@@ -75,6 +106,14 @@ FRONTEND_URL=http://localhost:3000
 
 ### Running the Application
 
+#### Option 1: Start both frontend and backend with a single command (Recommended)
+```bash
+# From the root directory
+npm run dev
+```
+This will start both the backend server and frontend development server concurrently.
+
+#### Option 2: Start servers separately
 1. Start the backend server:
 ```bash
 cd backend

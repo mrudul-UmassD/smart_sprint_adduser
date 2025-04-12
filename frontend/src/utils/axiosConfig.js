@@ -16,6 +16,7 @@ axios.interceptors.request.use(
     return config;
   },
   error => {
+    console.error('Request interceptor error:', error);
     return Promise.reject(error);
   }
 );
@@ -24,6 +25,8 @@ axios.interceptors.request.use(
 axios.interceptors.response.use(
   response => response,
   error => {
+    console.error('API response error:', error?.response?.status, error?.response?.data);
+    
     // Handle 401 Unauthorized errors
     if (error.response && error.response.status === 401) {
       console.log('Authentication error detected. Logging out.');
@@ -31,6 +34,12 @@ axios.interceptors.response.use(
       localStorage.removeItem('user');
       window.location.href = '/login';
     }
+    
+    // Handle CORS errors which won't have a proper response object
+    if (error.message === 'Network Error') {
+      console.error('Network or CORS error detected');
+    }
+    
     return Promise.reject(error);
   }
 );

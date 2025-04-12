@@ -171,13 +171,25 @@ router.delete('/:id', auth, async (req, res) => {
 // Get current user details
 router.get('/me', auth, async (req, res) => {
     try {
-        const user = await User.findById(req.user._id).select('-password');
+        console.log('Users /me route called');
+        console.log('User ID from token:', req.user._id || req.user.id);
+        
+        const user = await User.findById(req.user._id || req.user.id).select('-password');
         if (!user) {
-            return res.status(404).json({ error: 'User not found' });
+            return res.status(404).json({ 
+                success: false,
+                error: 'User not found' 
+            });
         }
+        
+        console.log('User found:', user.username);
         res.json(user);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error('Error in /me route:', error.message);
+        res.status(500).json({ 
+            success: false,
+            error: error.message 
+        });
     }
 });
 
