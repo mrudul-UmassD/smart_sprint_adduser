@@ -19,7 +19,8 @@ import {
     ViewKanban as ViewKanbanIcon, 
     Person as PersonIcon, 
     ExitToApp as ExitToAppIcon,
-    Settings as SettingsIcon
+    Settings as SettingsIcon,
+    Widgets as WidgetsIcon
 } from '@mui/icons-material';
 // Import logo
 import logo from '../assets/logo/logo.png';
@@ -101,6 +102,10 @@ const Navigation = () => {
           <ListItemText primary="Dashboard" />
         </ListItem>
         
+        <ListItem component={Link} to="/custom-dashboard">
+          <ListItemText primary="Custom Dashboard" />
+        </ListItem>
+        
         <ListItem component={Link} to="/projects">
           <ListItemText primary="Projects" />
         </ListItem>
@@ -163,6 +168,10 @@ const Navigation = () => {
             <Nav className="me-auto">
               <Nav.Link as={Link} to="/dashboard">
                 <DashboardIcon fontSize="small" className="me-1" /> Dashboard
+              </Nav.Link>
+              
+              <Nav.Link as={Link} to="/custom-dashboard">
+                <WidgetsIcon fontSize="small" className="me-1" /> Custom Dashboard
               </Nav.Link>
               
               {canManageUsers && (
@@ -276,6 +285,15 @@ const Navigation = () => {
               onClick={handleDrawerToggle}
             >
               <DashboardIcon fontSize="small" className="me-3" /> Dashboard
+            </ListGroup.Item>
+            
+            <ListGroup.Item 
+              action 
+              as={Link} 
+              to="/custom-dashboard" 
+              onClick={handleDrawerToggle}
+            >
+              <WidgetsIcon fontSize="small" className="me-3" /> Custom Dashboard
             </ListGroup.Item>
             
             {canManageUsers && (

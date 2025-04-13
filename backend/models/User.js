@@ -77,6 +77,54 @@ const userSchema = new mongoose.Schema({
     createdAt: {
         type: Date,
         default: Date.now
+    },
+    // Dashboard settings
+    dashboardSettings: {
+        widgets: [
+            {
+                id: {
+                    type: String,
+                    required: true
+                },
+                type: {
+                    type: String,
+                    required: true
+                },
+                config: {
+                    type: mongoose.Schema.Types.Mixed,
+                    default: {}
+                }
+            }
+        ],
+        layouts: {
+            type: mongoose.Schema.Types.Mixed,
+            default: {}
+        }
+    },
+    // Theme preferences
+    themePreference: {
+        type: String,
+        enum: ['light', 'dark'],
+        default: 'light'
+    },
+    // Notification settings
+    notificationSettings: {
+        emailNotifications: {
+            type: Boolean,
+            default: true
+        },
+        pushNotifications: {
+            type: Boolean,
+            default: true
+        },
+        taskReminders: {
+            type: Boolean,
+            default: true
+        },
+        projectUpdates: {
+            type: Boolean,
+            default: true
+        }
     }
 }, {
     timestamps: true

@@ -4,6 +4,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
+import CustomDashboard from './components/CustomDashboard';
 import UserList from './components/UserList';
 import ProjectList from './components/ProjectList';
 import KanbanBoard from './components/KanbanBoard';
@@ -15,6 +16,8 @@ import Box from '@mui/material/Box';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './styles.css';
 import theme from './theme';
+import { ThemeProvider as ContextThemeProvider } from './contexts/ThemeContext';
+import './styles/Widgets.css';
 
 // Component to check if user needs to change password
 const FirstLoginCheck = ({ children }) => {
@@ -127,81 +130,90 @@ function App() {
         }));
     }
     
-    return (
-        <ThemeProvider theme={theme}>
-            <CssBaseline />
-            <Router>
-                <Routes>
-                    <Route path="/login" element={<Login />} />
-                    <Route
-                        path="/first-login"
-                        element={
-                            <FirstLoginRoute>
-                                <FirstLogin />
-                            </FirstLoginRoute>
-                        }
-                    />
-                    <Route
-                        path="/dashboard"
-                        element={
-                            <PrivateRoute>
-                                <Dashboard />
-                            </PrivateRoute>
-                        }
-                    />
-                    <Route
-                        path="/users"
-                        element={
-                            <PrivateRoute>
-                                <UserList />
-                            </PrivateRoute>
-                        }
-                    />
-                    <Route
-                        path="/projects"
-                        element={
-                            <PrivateRoute>
-                                <ProjectList />
-                            </PrivateRoute>
-                        }
-                    />
-                    <Route
-                        path="/kanban"
-                        element={
-                            <PrivateRoute>
-                                <KanbanBoard />
-                            </PrivateRoute>
-                        }
-                    />
-                    <Route
-                        path="/kanban/:projectId"
-                        element={
-                            <PrivateRoute>
-                                <KanbanBoard />
-                            </PrivateRoute>
-                        }
-                    />
-                    <Route
-                        path="/task/:taskId"
-                        element={
-                            <PrivateRoute>
-                                <TaskDetail />
-                            </PrivateRoute>
-                        }
-                    />
-                    <Route
-                        path="/profile"
-                        element={
-                            <PrivateRoute>
-                                <UserProfile />
-                            </PrivateRoute>
-                        }
-                    />
-                    <Route path="/" element={<Navigate to="/login" />} />
-                </Routes>
-            </Router>
-        </ThemeProvider>
-    );
+  return (
+    <ContextThemeProvider>
+      <ThemeProvider>
+        <Router>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route
+              path="/first-login"
+              element={
+                <FirstLoginRoute>
+                  <FirstLogin />
+                </FirstLoginRoute>
+              }
+            />
+            <Route
+              path="/dashboard"
+              element={
+                <PrivateRoute>
+                  <Dashboard />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/custom-dashboard"
+              element={
+                <PrivateRoute>
+                  <CustomDashboard user={JSON.parse(localStorage.getItem('user') || '{}')} />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/users"
+              element={
+                <PrivateRoute>
+                  <UserList />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/projects"
+              element={
+                <PrivateRoute>
+                  <ProjectList />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/kanban"
+              element={
+                <PrivateRoute>
+                  <KanbanBoard />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/kanban/:projectId"
+              element={
+                <PrivateRoute>
+                  <KanbanBoard />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/task/:taskId"
+              element={
+                <PrivateRoute>
+                  <TaskDetail />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <PrivateRoute>
+                  <UserProfile />
+                </PrivateRoute>
+              }
+            />
+            <Route path="/" element={<Navigate to="/login" />} />
+          </Routes>
+        </Router>
+      </ThemeProvider>
+    </ContextThemeProvider>
+  );
 }
 
 export default App;

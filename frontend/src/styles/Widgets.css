@@ -1,0 +1,188 @@
+/* Widget base styles */
+.widget {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.widget-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Widget titles */
+.widget-title {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 1rem;
+  cursor: move;
+  display: flex;
+  align-items: center;
+}
+
+.widget-title svg {
+  margin-right: 0.5rem;
+}
+
+/* Widget controls */
+.widget-controls {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.widget:hover .widget-controls {
+  opacity: 1;
+}
+
+/* Dark mode styles */
+.theme-dark .widget {
+  background-color: var(--widget-bg);
+  border: 1px solid var(--widget-border);
+  color: var(--text-color);
+}
+
+.theme-dark .widget-controls {
+  background-color: rgba(52, 58, 64, 0.8) !important;
+}
+
+.theme-dark .widget-controls button {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.theme-dark .widget-controls button:hover {
+  color: #fff !important;
+}
+
+/* Notification styles */
+.widget-notification {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 100;
+  max-width: 100%;
+}
+
+.widget-notification .toast {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  font-size: 14px;
+}
+
+.widget-notification .toast-header {
+  padding: 0.5rem 0.75rem;
+}
+
+.widget-notification .toast-body {
+  padding: 0.75rem;
+}
+
+/* Dark mode for notifications */
+.theme-dark .toast {
+  background-color: #2c3034;
+  color: #f8f9fa;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.theme-dark .toast-header {
+  background-color: #343a40;
+  color: #f8f9fa;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Project Summary Widget */
+.project-summary-widget .progress {
+  height: 8px;
+}
+
+.project-summary-widget .chart-container {
+  position: relative;
+  height: 140px;
+}
+
+/* Tasks Widget */
+.tasks-widget .filter-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.tasks-widget .task-list-container {
+  overflow-y: auto;
+}
+
+/* Burndown Chart Widget */
+.burndown-chart-widget .chart-container {
+  position: relative;
+  height: 250px;
+}
+
+/* Team Performance Widget */
+.team-performance-widget .team-overview {
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border-radius: 4px;
+}
+
+.team-performance-widget .progress {
+  height: 8px;
+}
+
+/* Widget Configuration Modal */
+.config-modal-body {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.dark-modal .modal-content {
+  background-color: #2c3034;
+  color: #f8f9fa;
+}
+
+.dark-modal .modal-header,
+.dark-modal .modal-footer {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark-modal .form-control,
+.dark-modal .form-select {
+  background-color: #343a40;
+  color: #f8f9fa;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark-modal .form-control:focus,
+.dark-modal .form-select:focus {
+  background-color: #343a40;
+  color: #f8f9fa;
+}
+
+.dark-modal .form-check-input {
+  background-color: #343a40;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark-modal .text-muted {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .widget-controls {
+    opacity: 1;
+  }
+  
+  .config-modal-body {
+    max-height: 60vh;
+  }
+  
+  .widget-notification .toast {
+    max-width: 280px;
+  }
+} 

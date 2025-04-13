@@ -38,6 +38,9 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const projectRoutes = require('./routes/projects');
 const taskRoutes = require('./routes/tasks');
+const userSettingsRoutes = require('./routes/userSettings');
+const reportsRoutes = require('./routes/reports');
+const analyticsRoutes = require('./routes/analytics');
 
 // Use routes with rate limiting
 app.use('/api/auth/login', loginLimiter, authRoutes);
@@ -47,14 +50,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', apiLimiter, userRoutes);
 app.use('/api/projects', apiLimiter, projectRoutes);
 app.use('/api/tasks', apiLimiter, taskRoutes);
-
-// Only add analytics routes if the file exists
-try {
-  const analyticsRoutes = require('./routes/analytics');
-  app.use('/api/analytics', apiLimiter, analyticsRoutes);
-} catch (error) {
-  console.log('Analytics routes not available');
-}
+app.use('/api/settings', apiLimiter, userSettingsRoutes);
+app.use('/api/reports', apiLimiter, reportsRoutes);
+app.use('/api/userSettings', apiLimiter, userSettingsRoutes);
+app.use('/api/analytics', apiLimiter, analyticsRoutes);
 
 // Serve static assets in production
 if (process.env.NODE_ENV === 'production') {

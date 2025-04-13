@@ -27,6 +27,38 @@ npm run dev
 - Task Management with Kanban Board
 - Team Management
 - Analytics and Reporting
+
+### New Features
+- **Task Dependencies and Gantt Charts**
+  - Set up dependencies between tasks
+  - Visualize project timelines with interactive Gantt charts
+  - Identify critical paths and potential bottlenecks
+  
+- **Customizable Dashboards**
+  - Configure dashboard with preferred metrics and widgets
+  - Role-specific views highlighting relevant information
+  - Drag-and-drop functionality for dashboard components
+  
+- **Advanced Reporting**
+  - Export reports in various formats (PDF, Excel, CSV)
+  - Generate burndown charts for sprint progress
+  - Track velocity for development teams
+  
+- **Time Tracking**
+  - Log time spent on tasks
+  - Generate timesheet reports for billing or productivity analysis
+  - Set reminders for timely updates
+  
+- **Third-Party Integrations**
+  - Connect with version control systems (GitHub, GitLab)
+  - Integrate with communication tools (Slack, Microsoft Teams)
+  - Link with calendar applications for deadline management
+  
+- **Document Management**
+  - Version control for attached files
+  - Centralized document repository for projects
+  - Collaboration features for document editing
+
 - Real-time Updates
 - File Attachments
 - Role-based Access Control
@@ -36,9 +68,14 @@ npm run dev
 ### Frontend
 - React.js
 - React Bootstrap
-- Chart.js
+- Material-UI
+- React Grid Layout (for customizable dashboards)
+- Gantt-Task-React (for Gantt charts)
+- Chart.js and Recharts (for data visualization)
+- React Big Calendar (for scheduling)
 - Axios
 - React Router
+- XLSX and jsPDF (for report exports)
 
 ### Backend
 - Node.js
@@ -47,6 +84,10 @@ npm run dev
 - Mongoose
 - JWT Authentication
 - Multer (File Uploads)
+- Passport (OAuth for third-party integrations)
+- Socket.io (for real-time updates)
+- PDF-Lib and Excel.js (for report generation)
+- Nodemailer (for notifications)
 
 ## Security Features
 - Rate Limiting
@@ -102,6 +143,12 @@ MONGODB_URI=your_mongodb_connection_string
 JWT_SECRET=your_jwt_secret
 PORT=5000
 FRONTEND_URL=http://localhost:3000
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret
+SMTP_HOST=your_smtp_host
+SMTP_PORT=your_smtp_port
+SMTP_USER=your_smtp_user
+SMTP_PASS=your_smtp_pass
 ```
 
 ### Running the Application
@@ -151,12 +198,31 @@ The application will be available at http://localhost:3000
 - POST /api/tasks - Create new task
 - PUT /api/tasks/:id - Update task
 - DELETE /api/tasks/:id - Delete task
+- POST /api/tasks/:id/dependencies - Add dependencies to a task
+- DELETE /api/tasks/:id/dependencies/:dependencyId - Remove a dependency
+- POST /api/tasks/:id/time - Log time spent on a task
+- GET /api/tasks/timeEntries/user - Get time entries for a user
 
-### Analytics
-- GET /api/analytics/project/:projectId - Get project analytics
-- GET /api/analytics/team/:team - Get team performance
-- GET /api/analytics/timeline/:projectId - Get project timeline
-- GET /api/analytics/burndown/:projectId - Get burndown chart data
+### Dashboard Settings
+- GET /api/settings - Get user settings
+- PATCH /api/settings/dashboard/layout - Update dashboard layout
+- PATCH /api/settings/dashboard/theme - Update dashboard theme
+- POST /api/settings/dashboard/widgets - Add a dashboard widget
+- PATCH /api/settings/dashboard/widgets/:widgetId - Update a widget
+- DELETE /api/settings/dashboard/widgets/:widgetId - Remove a widget
+
+### Reports
+- GET /api/reports/burndown/:projectId - Get burndown chart data
+- GET /api/reports/velocity/:projectId - Get velocity tracking data
+- GET /api/reports/timeTracking/export - Export time tracking report
+
+### Integrations
+- POST /api/settings/integrations - Add or update a third-party integration
+- DELETE /api/settings/integrations/:type - Remove an integration
+
+### Documents
+- POST /api/tasks/:id/documents - Upload a document to a task
+- POST /api/tasks/:id/documents/:documentId/versions - Upload a new version
 
 ## Testing
 
@@ -198,5 +264,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - Material-UI for UI components
 - Chart.js for data visualization
 - React Bootstrap for responsive design
-- MongoDB for database
-- Express.js for backend framework 
+- Gantt-Task-React for Gantt charts
+- React Grid Layout for customizable dashboards 

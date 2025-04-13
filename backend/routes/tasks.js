@@ -656,4 +656,487 @@ router.get('/uploads/:filename', auth, async (req, res) => {
     }
 });
 
+// Add dependencies to a task
+router.post('/:id/dependencies', auth, async (req, res) => {
+    try {
+        const { dependencies } = req.body;
+        
+        if (!dependencies || !Array.isArray(dependencies)) {
+            return res.status(400).json({ 
+                success: false,
+                error: 'Dependencies are required and must be an array' 
+            });
+        }
+        
+        const task = await Task.findById(req.params.id);
+        
+        if (!task) {
+            return res.status(404).json({ 
+                success: false,
+                error: 'Task not found' 
+            });
+        }
+        
+        // Check if user has permission to update the task
+        const project = await Project.findById(task.project);
+        if (!project) {
+            return res.status(404).json({ 
+                success: false,
+                error: 'Project not found' 
+            });
+        }
+        
+        // Check if user is Admin, Project Manager, or task assignee
+        const isAdmin = req.user.role === 'Admin';
+        const isPM = req.user.role === 'Project Manager' && project.members.some(
+            member => member.userId.toString() === req.user._id.toString() && member.role === 'Project Manager'
+        );
+        const isAssignee = task.assignee && task.assignee.toString() === req.user._id.toString();
+        
+        if (!isAdmin && !isPM && !isAssignee) {
+            return res.status(403).json({ 
+                success: false,
+                error: 'Not authorized to update this task' 
+            });
+        }
+        
+        // Validate all dependency IDs exist and add them
+        for (const dep of dependencies) {
+            const dependencyTask = await Task.findById(dep.task);
+            if (!dependencyTask) {
+                return res.status(400).json({ 
+                    success: false,
+                    error: `Dependency task ${dep.task} not found` 
+                });
+            }
+            
+            // Add this task as a dependent to the dependency task
+            if (!dependencyTask.dependents.includes(task._id)) {
+                dependencyTask.dependents.push(task._id);
+                await dependencyTask.save();
+            }
+        }
+        
+        // Update task dependencies
+        task.dependencies = dependencies;
+        await task.save();
+        
+        res.json({ 
+            success: true,
+            message: 'Dependencies added successfully',
+            task 
+        });
+    } catch (error) {
+        console.error('Error adding dependencies:', error);
+        res.status(500).json({ 
+            success: false,
+            error: error.message 
+        });
+    }
+});
+
+// Remove a dependency from a task
+router.delete('/:id/dependencies/:dependencyId', auth, async (req, res) => {
+    try {
+        const task = await Task.findById(req.params.id);
+        
+        if (!task) {
+            return res.status(404).json({ 
+                success: false,
+                error: 'Task not found' 
+            });
+        }
+        
+        // Check if user has permission to update the task
+        const project = await Project.findById(task.project);
+        if (!project) {
+            return res.status(404).json({ 
+                success: false,
+                error: 'Project not found' 
+            });
+        }
+        
+        // Check if user is Admin, Project Manager, or task assignee
+        const isAdmin = req.user.role === 'Admin';
+        const isPM = req.user.role === 'Project Manager' && project.members.some(
+            member => member.userId.toString() === req.user._id.toString() && member.role === 'Project Manager'
+        );
+        const isAssignee = task.assignee && task.assignee.toString() === req.user._id.toString();
+        
+        if (!isAdmin && !isPM && !isAssignee) {
+            return res.status(403).json({ 
+                success: false,
+                error: 'Not authorized to update this task' 
+            });
+        }
+        
+        // Remove dependency
+        task.dependencies = task.dependencies.filter(
+            dep => dep.task.toString() !== req.params.dependencyId
+        );
+        await task.save();
+        
+        // Remove this task from the dependency's dependents
+        const dependencyTask = await Task.findById(req.params.dependencyId);
+        if (dependencyTask) {
+            dependencyTask.dependents = dependencyTask.dependents.filter(
+                depId => depId.toString() !== task._id.toString()
+            );
+            await dependencyTask.save();
+        }
+        
+        res.json({ 
+            success: true,
+            message: 'Dependency removed successfully',
+            task 
+        });
+    } catch (error) {
+        console.error('Error removing dependency:', error);
+        res.status(500).json({ 
+            success: false,
+            error: error.message 
+        });
+    }
+});
+
+// Add a time entry to a task
+router.post('/:id/time', auth, async (req, res) => {
+    try {
+        const { startTime, endTime, description } = req.body;
+        
+        if (!startTime || !endTime) {
+            return res.status(400).json({ 
+                success: false,
+                error: 'Start time and end time are required' 
+            });
+        }
+        
+        const task = await Task.findById(req.params.id);
+        
+        if (!task) {
+            return res.status(404).json({ 
+                success: false,
+                error: 'Task not found' 
+            });
+        }
+        
+        // Only assignee and admins can log time
+        const isAdmin = req.user.role === 'Admin';
+        const isAssignee = task.assignee && task.assignee.toString() === req.user._id.toString();
+        
+        if (!isAdmin && !isAssignee) {
+            return res.status(403).json({ 
+                success: false,
+                error: 'Not authorized to log time on this task' 
+            });
+        }
+        
+        // Calculate duration in minutes
+        const start = new Date(startTime);
+        const end = new Date(endTime);
+        const durationMinutes = Math.round((end - start) / 60000);
+        
+        if (durationMinutes <= 0) {
+            return res.status(400).json({ 
+                success: false,
+                error: 'End time must be after start time' 
+            });
+        }
+        
+        // Add time entry
+        const timeEntry = {
+            user: req.user._id,
+            startTime: start,
+            endTime: end,
+            duration: durationMinutes,
+            description
+        };
+        
+        task.timeEntries.push(timeEntry);
+        await task.save();
+        
+        res.json({ 
+            success: true,
+            message: 'Time entry added successfully',
+            task,
+            timeEntry 
+        });
+    } catch (error) {
+        console.error('Error adding time entry:', error);
+        res.status(500).json({ 
+            success: false,
+            error: error.message 
+        });
+    }
+});
+
+// Delete a time entry
+router.delete('/:id/time/:timeEntryId', auth, async (req, res) => {
+    try {
+        const task = await Task.findById(req.params.id);
+        
+        if (!task) {
+            return res.status(404).json({ 
+                success: false,
+                error: 'Task not found' 
+            });
+        }
+        
+        // Find the time entry
+        const timeEntry = task.timeEntries.id(req.params.timeEntryId);
+        
+        if (!timeEntry) {
+            return res.status(404).json({ 
+                success: false,
+                error: 'Time entry not found' 
+            });
+        }
+        
+        // Check if user is the creator of the time entry or admin
+        const isAdmin = req.user.role === 'Admin';
+        const isCreator = timeEntry.user.toString() === req.user._id.toString();
+        
+        if (!isAdmin && !isCreator) {
+            return res.status(403).json({ 
+                success: false,
+                error: 'Not authorized to delete this time entry' 
+            });
+        }
+        
+        // Remove time entry
+        timeEntry.remove();
+        await task.save();
+        
+        res.json({ 
+            success: true,
+            message: 'Time entry deleted successfully',
+            task 
+        });
+    } catch (error) {
+        console.error('Error deleting time entry:', error);
+        res.status(500).json({ 
+            success: false,
+            error: error.message 
+        });
+    }
+});
+
+// Upload a document to a task
+router.post('/:id/documents', auth, upload.single('file'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ 
+                success: false,
+                error: 'No file uploaded' 
+            });
+        }
+        
+        const task = await Task.findById(req.params.id);
+        
+        if (!task) {
+            return res.status(404).json({ 
+                success: false,
+                error: 'Task not found' 
+            });
+        }
+        
+        // Check if user is allowed to add documents
+        const project = await Project.findById(task.project);
+        if (!project) {
+            return res.status(404).json({ 
+                success: false,
+                error: 'Project not found' 
+            });
+        }
+        
+        const isAdmin = req.user.role === 'Admin';
+        const isPM = req.user.role === 'Project Manager' && project.members.some(
+            member => member.userId.toString() === req.user._id.toString() && member.role === 'Project Manager'
+        );
+        const isTeamMember = project.members.some(
+            member => member.userId.toString() === req.user._id.toString()
+        );
+        
+        if (!isAdmin && !isPM && !isTeamMember) {
+            return res.status(403).json({ 
+                success: false,
+                error: 'Not authorized to add documents to this task' 
+            });
+        }
+        
+        // Create document
+        const document = {
+            name: req.file.originalname,
+            path: req.file.path,
+            mimetype: req.file.mimetype,
+            size: req.file.size,
+            uploadedBy: req.user._id,
+            versions: [{
+                path: req.file.path,
+                updatedBy: req.user._id,
+                versionNumber: 1
+            }]
+        };
+        
+        task.documents.push(document);
+        await task.save();
+        
+        res.json({ 
+            success: true,
+            message: 'Document uploaded successfully',
+            document 
+        });
+    } catch (error) {
+        console.error('Error uploading document:', error);
+        res.status(500).json({ 
+            success: false,
+            error: error.message 
+        });
+    }
+});
+
+// Upload a new version of a document
+router.post('/:id/documents/:documentId/versions', auth, upload.single('file'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ 
+                success: false,
+                error: 'No file uploaded' 
+            });
+        }
+        
+        const task = await Task.findById(req.params.id);
+        
+        if (!task) {
+            return res.status(404).json({ 
+                success: false,
+                error: 'Task not found' 
+            });
+        }
+        
+        // Find document
+        const document = task.documents.id(req.params.documentId);
+        
+        if (!document) {
+            return res.status(404).json({ 
+                success: false,
+                error: 'Document not found' 
+            });
+        }
+        
+        // Check permissions
+        const isAdmin = req.user.role === 'Admin';
+        const isUploader = document.uploadedBy.toString() === req.user._id.toString();
+        const project = await Project.findById(task.project);
+        const isPM = req.user.role === 'Project Manager' && project.members.some(
+            member => member.userId.toString() === req.user._id.toString() && member.role === 'Project Manager'
+        );
+        
+        if (!isAdmin && !isUploader && !isPM) {
+            return res.status(403).json({ 
+                success: false,
+                error: 'Not authorized to update this document' 
+            });
+        }
+        
+        // Add new version
+        const newVersionNumber = document.versions.length + 1;
+        document.versions.push({
+            path: req.file.path,
+            updatedBy: req.user._id,
+            versionNumber: newVersionNumber
+        });
+        
+        // Update document details
+        document.path = req.file.path;
+        document.size = req.file.size;
+        document.updatedAt = Date.now();
+        
+        await task.save();
+        
+        res.json({ 
+            success: true,
+            message: 'Document version uploaded successfully',
+            document 
+        });
+    } catch (error) {
+        console.error('Error uploading document version:', error);
+        res.status(500).json({ 
+            success: false,
+            error: error.message 
+        });
+    }
+});
+
+// Get all time entries for a specific user across all tasks
+router.get('/timeEntries/user', auth, async (req, res) => {
+    try {
+        const { startDate, endDate, projectId } = req.query;
+        
+        // Build filter
+        const filter = {};
+        
+        if (projectId) {
+            filter.project = projectId;
+        }
+        
+        // Find all tasks with time entries for this user
+        const tasks = await Task.find(filter)
+            .populate('project', 'name')
+            .populate('assignee', 'username')
+            .populate('timeEntries.user', 'username');
+        
+        // Extract time entries for this user
+        let userTimeEntries = [];
+        
+        tasks.forEach(task => {
+            const taskTimeEntries = task.timeEntries.filter(
+                entry => entry.user._id.toString() === req.user._id.toString()
+            );
+            
+            if (taskTimeEntries.length > 0) {
+                taskTimeEntries.forEach(entry => {
+                    userTimeEntries.push({
+                        taskId: task._id,
+                        taskTitle: task.title,
+                        projectId: task.project._id,
+                        projectName: task.project.name,
+                        timeEntryId: entry._id,
+                        startTime: entry.startTime,
+                        endTime: entry.endTime,
+                        duration: entry.duration,
+                        description: entry.description,
+                        createdAt: entry.createdAt
+                    });
+                });
+            }
+        });
+        
+        // Filter by date if provided
+        if (startDate) {
+            const start = new Date(startDate);
+            userTimeEntries = userTimeEntries.filter(entry => entry.startTime >= start);
+        }
+        
+        if (endDate) {
+            const end = new Date(endDate);
+            userTimeEntries = userTimeEntries.filter(entry => entry.startTime <= end);
+        }
+        
+        // Sort by start time
+        userTimeEntries.sort((a, b) => b.startTime - a.startTime);
+        
+        res.json({ 
+            success: true,
+            timeEntries: userTimeEntries 
+        });
+    } catch (error) {
+        console.error('Error fetching user time entries:', error);
+        res.status(500).json({ 
+            success: false,
+            error: error.message 
+        });
+    }
+});
+
 module.exports = router; 
