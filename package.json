@@ -4,7 +4,8 @@
   "description": "Smart Sprint - Team Management MERN Application",
   "main": "index.js",
   "scripts": {
-    "start": "node backend/server.js",
+    "start": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "start:backend": "node backend/server.js",
     "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
     "backend": "cd backend && npm run dev",
     "frontend": "cd frontend && npm start",
