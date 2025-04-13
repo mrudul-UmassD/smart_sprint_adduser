@@ -3,7 +3,6 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const UserSettings = require('../models/UserSettings');
 const User = require('../models/User');
-const { authenticateToken, checkRole } = require('../middleware/authMiddleware');
 
 // Get user settings
 router.get('/', auth, async (req, res) => {
@@ -486,7 +485,7 @@ router.delete('/integrations/:type', auth, async (req, res) => {
 });
 
 // Get user dashboard configuration
-router.get('/dashboard', authenticateToken, async (req, res) => {
+router.get('/dashboard', auth, async (req, res) => {
   try {
     const userId = req.user.id;
     
@@ -506,7 +505,7 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
 });
 
 // Update user dashboard configuration
-router.post('/dashboard', authenticateToken, async (req, res) => {
+router.post('/dashboard', auth, async (req, res) => {
   try {
     const userId = req.user.id;
     const { widgets, layouts } = req.body;
@@ -542,7 +541,7 @@ router.post('/dashboard', authenticateToken, async (req, res) => {
 });
 
 // Get dashboard template suggestions for user
-router.get('/dashboard/templates', authenticateToken, async (req, res) => {
+router.get('/dashboard/templates', auth, async (req, res) => {
   try {
     const { role } = req.user;
     
@@ -564,7 +563,7 @@ router.get('/dashboard/templates', authenticateToken, async (req, res) => {
 });
 
 // Get user theme preferences
-router.get('/theme', authenticateToken, async (req, res) => {
+router.get('/theme', auth, async (req, res) => {
   try {
     const userId = req.user.id;
     
@@ -584,7 +583,7 @@ router.get('/theme', authenticateToken, async (req, res) => {
 });
 
 // Update user theme preferences
-router.post('/theme', authenticateToken, async (req, res) => {
+router.post('/theme', auth, async (req, res) => {
   try {
     const userId = req.user.id;
     const { theme } = req.body;
@@ -613,7 +612,7 @@ router.post('/theme', authenticateToken, async (req, res) => {
 });
 
 // Update user notification settings
-router.post('/notifications', authenticateToken, async (req, res) => {
+router.post('/notifications', auth, async (req, res) => {
   try {
     const userId = req.user.id;
     const { settings } = req.body;

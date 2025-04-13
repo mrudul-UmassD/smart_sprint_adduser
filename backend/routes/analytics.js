@@ -1,14 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const analyticsService = require('../services/analyticsService');
-const { authenticateToken } = require('../middleware/auth');
+const auth = require('../middleware/auth');
 const Project = require('../models/Project');
 const Task = require('../models/Task');
 const User = require('../models/User');
 const mongoose = require('mongoose');
 
 // Get project analytics
-router.get('/projects/:projectId', authenticateToken, async (req, res) => {
+router.get('/projects/:projectId', auth, async (req, res) => {
   try {
     const analytics = await analyticsService.getProjectAnalytics(req.params.projectId);
     res.json(analytics);
@@ -18,7 +18,7 @@ router.get('/projects/:projectId', authenticateToken, async (req, res) => {
 });
 
 // Get team performance analytics
-router.get('/team/:team', authenticateToken, async (req, res) => {
+router.get('/team/:team', auth, async (req, res) => {
   try {
     const performance = await analyticsService.getTeamPerformance(req.params.team);
     res.json(performance);
@@ -28,7 +28,7 @@ router.get('/team/:team', authenticateToken, async (req, res) => {
 });
 
 // Get project timeline analytics
-router.get('/timeline/:projectId', authenticateToken, async (req, res) => {
+router.get('/timeline/:projectId', auth, async (req, res) => {
   try {
     const timeline = await analyticsService.getProjectTimeline(req.params.projectId);
     res.json(timeline);
@@ -38,7 +38,7 @@ router.get('/timeline/:projectId', authenticateToken, async (req, res) => {
 });
 
 // Get burndown chart data
-router.get('/burndown/:projectId', authenticateToken, async (req, res) => {
+router.get('/burndown/:projectId', auth, async (req, res) => {
   try {
     const burndown = await analyticsService.getBurndownData(req.params.projectId);
     res.json(burndown);
@@ -48,7 +48,7 @@ router.get('/burndown/:projectId', authenticateToken, async (req, res) => {
 });
 
 // Get dashboard data
-router.get('/dashboard', authenticateToken, async (req, res) => {
+router.get('/dashboard', auth, async (req, res) => {
   try {
     const { timeRange, projectId } = req.query;
     const userId = req.user.id;
@@ -165,7 +165,7 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
 });
 
 // Project summary
-router.get('/projects/:projectId/summary', authenticateToken, async (req, res) => {
+router.get('/projects/:projectId/summary', auth, async (req, res) => {
   try {
     const { projectId } = req.params;
     let project;
@@ -226,7 +226,7 @@ router.get('/projects/:projectId/summary', authenticateToken, async (req, res) =
 });
 
 // Burndown chart data
-router.get('/projects/:projectId/burndown', authenticateToken, async (req, res) => {
+router.get('/projects/:projectId/burndown', auth, async (req, res) => {
   try {
     const { projectId } = req.params;
     
@@ -334,7 +334,7 @@ router.get('/projects/:projectId/burndown', authenticateToken, async (req, res) 
 });
 
 // Team performance data
-router.get('/teams/:team/performance', authenticateToken, async (req, res) => {
+router.get('/teams/:team/performance', auth, async (req, res) => {
   try {
     const { team } = req.params;
     
@@ -382,7 +382,7 @@ router.get('/teams/:team/performance', authenticateToken, async (req, res) => {
 });
 
 // Get task data for "My Tasks" widget
-router.get('/tasks/my-tasks', authenticateToken, async (req, res) => {
+router.get('/tasks/my-tasks', auth, async (req, res) => {
   try {
     const { limit = 5 } = req.query;
     const userId = req.user.id;
