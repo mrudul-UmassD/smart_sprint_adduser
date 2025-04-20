@@ -18,7 +18,13 @@ import {
 import { Add as AddIcon, Settings as SettingsIcon, Save as SaveIcon } from '@mui/icons-material';
 import WidgetRenderer from './widgets/WidgetRenderer';
 import WidgetConfigModal from './widgets/WidgetConfigModal';
-import { getAvailableWidgets, getDashboardTemplate } from './widgets/WidgetRegistry';
+import { 
+  getAvailableWidgets, 
+  getDashboardTemplate, 
+  WIDGET_METADATA, 
+  WIDGET_TYPES, 
+  DEFAULT_WIDGET_CONFIGS 
+} from './widgets/WidgetRegistry';
 import { applyLayoutMode, updateWidgetsWithLayout } from './layouts/DashboardLayouts';
 import API_CONFIG from '../config';
 import 'react-grid-layout/css/styles.css';
@@ -163,16 +169,33 @@ const CustomDashboard = ({ user }) => {
   
   // Initialize default dashboard based on user role
   const initializeDefaultDashboard = useCallback(() => {
-    const role = user.role;
+    const role = user?.role || 'Developer'; // Default to Developer if role not available
     const template = getDashboardTemplate(role);
     
     // Convert template to widgets with generated IDs
     const defaultWidgets = template.map((item, index) => {
       const id = `widget-${Date.now()}-${index}`;
+      
+      // Try to get title from available widgets or WIDGET_METADATA
+      let widgetTitle;
+      try {
+        const availableWidget = getAvailableWidgets(role).find(w => w.type === item.type);
+        if (availableWidget) {
+          widgetTitle = availableWidget.title;
+        } else {
+          // Fallback to metadata
+          const typeKey = Object.values(WIDGET_TYPES).find(type => type === item.type);
+          widgetTitle = typeKey && WIDGET_METADATA[typeKey] ? WIDGET_METADATA[typeKey].title : item.type;
+        }
+      } catch (error) {
+        console.error('Error getting widget title:', error);
+        widgetTitle = item.type; // Use type as fallback
+      }
+      
       return {
         id,
         type: item.type,
-        title: getAvailableWidgets(role).find(w => w.type === item.type)?.title || item.type,
+        title: widgetTitle || item.type,
         config: {},
         layout: {
           i: id,
@@ -218,19 +241,44 @@ const CustomDashboard = ({ user }) => {
   
   // Add a new widget
   const handleAddWidget = (widgetType, title) => {
-    const availableWidgets = getAvailableWidgets(user.role);
-    const widgetInfo = availableWidgets.find(w => w.type === widgetType);
+    // Try to get widget info from available widgets or WIDGET_METADATA
+    let widgetInfo;
+    try {
+      widgetInfo = getAvailableWidgets(user?.role || 'Developer').find(w => w.type === widgetType);
+      
+      if (!widgetInfo) {
+        // Fallback to metadata
+        const typeKey = Object.values(WIDGET_TYPES).find(type => type === widgetType);
+        if (typeKey && WIDGET_METADATA[typeKey]) {
+          widgetInfo = {
+            type: widgetType,
+            title: WIDGET_METADATA[typeKey].title,
+            defaultConfig: DEFAULT_WIDGET_CONFIGS[typeKey] || {},
+            defaultDimensions: { w: 6, h: 8 } // Default dimensions
+          };
+        }
+      }
+    } catch (error) {
+      console.error('Error getting widget info:', error);
+      // Create a basic widgetInfo if we couldn't get proper data
+      widgetInfo = {
+        type: widgetType,
+        title: title || widgetType,
+        defaultConfig: {},
+        defaultDimensions: { w: 6, h: 8 }
+      };
+    }
     
     if (!widgetInfo) return;
     
     const id = `widget-${Date.now()}`;
-    const { defaultDimensions } = widgetInfo;
+    const defaultDimensions = widgetInfo.defaultDimensions || { w: 6, h: 8 };
     
     // Create new widget
     const newWidget = {
       id,
       type: widgetType,
-      title: title || widgetInfo.title,
+      title: title || widgetInfo.title || widgetType,
       config: widgetInfo.defaultConfig || {},
       layout: {
         i: id,
@@ -249,11 +297,16 @@ const CustomDashboard = ({ user }) => {
     const newLayout = applyLayoutMode(dashboardLayout, updatedWidgets);
     setLayout(newLayout);
     
-    setShowAddWidget(false);
     setUnsavedChanges(true);
+    setShowWidgetSelector(false);
+    showNotification(`Added ${newWidget.title} widget`);
     
-    // If the widget requires configuration (like BurndownChart), open config modal
-    if (widgetInfo.requiresProject) {
+    // If the widget requires configuration (like selecting a project), open config modal
+    const requiresConfig = newWidget.type.includes('PROJECT') || 
+                          newWidget.type.includes('BURNDOWN') || 
+                          WIDGET_METADATA[newWidget.type]?.requiredConfigFields?.length > 0;
+                          
+    if (requiresConfig) {
       setConfigWidget(newWidget);
     }
   };
@@ -280,13 +333,13 @@ const CustomDashboard = ({ user }) => {
   };
   
   // Save widget configuration
-  const handleSaveWidgetConfig = (widgetId, { title, config }) => {
+  const handleSaveWidgetConfig = (widgetId, newConfig) => {
     const updatedWidgets = widgets.map(widget => {
       if (widget.id === widgetId) {
         return {
           ...widget,
-          title,
-          config
+          title: newConfig.title || widget.title,
+          config: newConfig.config || widget.config
         };
       }
       return widget;
@@ -520,7 +573,7 @@ const CustomDashboard = ({ user }) => {
                 <Button
                   variant="primary"
                   className="me-2"
-                  onClick={() => setShowAddWidget(true)}
+                  onClick={() => setShowWidgetSelector(true)}
                 >
                   <AddIcon className="me-1" />
                   Add Widget
@@ -555,258 +608,114 @@ const CustomDashboard = ({ user }) => {
             <div key={widget.id}>
               <WidgetRenderer
                 type={widget.type}
-    <Container fluid className="p-4">
-      {/* Toast notification */}
-      <ToastContainer position="top-end" className="p-3">
-        <Toast 
-          show={showToast} 
-          onClose={() => setShowToast(false)} 
-          delay={3000} 
-          autohide
-        >
-          <Toast.Header>
-            <strong className="me-auto">Dashboard</strong>
-          </Toast.Header>
-          <Toast.Body>{toastMessage}</Toast.Body>
-        </Toast>
-      </ToastContainer>
-
-      <Row className="mb-4 align-items-center">
-        <Col>
-          <h2 className="mb-0">Your Dashboard</h2>
-          <p className="text-muted">
-            {layoutMode === 'edit' 
-              ? 'Drag widgets to rearrange, resize them, or add new ones.' 
-              : 'View mode: Drag is disabled. Switch to edit mode to make changes.'}
-          </p>
-          {unsavedChanges && (
-            <Alert variant="info" className="p-2 mt-2">
-              You have unsaved changes. 
-              {autoSave ? ' They will be automatically saved.' : ' Remember to save your changes.'}
-            </Alert>
-          )}
-        </Col>
-        <Col xs="auto">
-          <Button
-            variant={layoutMode === 'edit' ? 'primary' : 'outline-primary'}
-            className="me-2"
-            onClick={toggleLayoutMode}
-          >
-            {layoutMode === 'edit' ? 'View Mode' : 'Edit Mode'}
-          </Button>
-          
-          <div className="btn-group me-2">
-            <Button
-              variant={dashboardLayout === 'Grid' ? 'primary' : 'outline-primary'}
-              onClick={() => handleLayoutModeChange('Grid')}
-              disabled={layoutMode !== 'edit'}
-            >
-              Grid
-            </Button>
-            <Button
-              variant={dashboardLayout === 'List' ? 'primary' : 'outline-primary'}
-              onClick={() => handleLayoutModeChange('List')}
-              disabled={layoutMode !== 'edit'}
-            >
-              List
-            </Button>
-            <Button
-              variant={dashboardLayout === 'Compact' ? 'primary' : 'outline-primary'}
-              onClick={() => handleLayoutModeChange('Compact')}
-              disabled={layoutMode !== 'edit'}
-            >
-              Compact
-            </Button>
-          </div>
-          
-          <Button
-            variant="outline-primary"
-            className="me-2"
-            onClick={() => setShowSettings(true)}
-          >
-            <SettingsIcon className="me-1" />
-            Settings
-          </Button>
-          
-          {layoutMode === 'edit' && (
-            <>
-              <Button
-                variant="primary"
-                className="me-2"
-                onClick={() => setShowAddWidget(true)}
-              >
-                <AddIcon className="me-1" />
-                Add Widget
-              </Button>
-              
-              {unsavedChanges && !autoSave && (
-                <Button
-                  variant="success"
-                  onClick={handleSaveSettings}
-                >
-                  <SaveIcon className="me-1" />
-                  Save
-                </Button>
-              )}
-            </>
-          )}
-        </Col>
-      </Row>
-      
-      <ResponsiveGridLayout
-        className="layout"
-        layouts={{ lg: layout }}
-        breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-        cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
-        rowHeight={60}
-        onLayoutChange={handleLayoutChange}
-        isDraggable={layoutMode === 'edit' && dashboardLayout === 'Grid'}
-        isResizable={layoutMode === 'edit' && dashboardLayout === 'Grid'}
-        containerPadding={[0, 0]}
-      >
-        {widgets.map(widget => (
-          <div key={widget.id}>
-            <WidgetRenderer
-              type={widget.type}
-              title={widget.title}
-              config={widget.config}
-              onRemove={layoutMode === 'edit' ? () => handleRemoveWidget(widget.id) : null}
-              onConfigure={layoutMode === 'edit' ? () => handleConfigureWidget(widget.id) : null}
-            />
-          </div>
-        ))}
-      </ResponsiveGridLayout>
-      
-      {/* Add Widget Offcanvas */}
-      <Offcanvas show={showAddWidget} onHide={() => setShowAddWidget(false)} placement="end">
-        <Offcanvas.Header closeButton>
-          <Offcanvas.Title>Add Widget</Offcanvas.Title>
-        </Offcanvas.Header>
-        <Offcanvas.Body>
-          <p className="text-muted mb-4">
-            Choose a widget to add to your dashboard. You can configure it after adding.
-          </p>
-          
-          <Row xs={1} className="g-4">
-            {getAvailableWidgets(user.role).map(widget => (
-              <Col key={widget.type}>
-                <Card 
-                  className="h-100 hover-elevate"
-                  onClick={() => handleAddWidget(widget.type)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <Card.Body className="d-flex flex-column">
-                    <div className="d-flex align-items-center mb-3">
-                      <div className="widget-icon me-3">
-                        {widget.icon}
-                      </div>
-                      <div>
-                        <h5 className="mb-0">{widget.title}</h5>
-                      </div>
-                    </div>
-                    <p className="text-muted mb-0">
-                      {widget.description}
-                    </p>
-                  </Card.Body>
-                </Card>
-              </Col>
-            ))}
-          </Row>
-        </Offcanvas.Body>
-      </Offcanvas>
-      
-      {/* Dashboard Settings Offcanvas */}
-      <Offcanvas show={showSettings} onHide={() => setShowSettings(false)} placement="end">
-        <Offcanvas.Header closeButton>
-          <Offcanvas.Title>Dashboard Settings</Offcanvas.Title>
-        </Offcanvas.Header>
-        <Offcanvas.Body>
-          <Form>
-            <Form.Group className="mb-4">
-              <Form.Label>Theme</Form.Label>
-              <Form.Select 
-                value={dashboardTheme}
-                onChange={(e) => {
-                  setDashboardTheme(e.target.value);
-                  setSettingsChanged(true);
-                  setUnsavedChanges(true);
-                }}
-              >
-                <option value="Light">Light</option>
-                <option value="Dark">Dark</option>
-                <option value="System">System (use device setting)</option>
-              </Form.Select>
-              <Form.Text className="text-muted">
-                Choose how your dashboard looks
-              </Form.Text>
-            </Form.Group>
-            
-            <Form.Group className="mb-4">
-              <Form.Label>Default Layout</Form.Label>
-              <Form.Select 
-                value={dashboardLayout}
-                onChange={(e) => {
-                  handleLayoutModeChange(e.target.value);
-                }}
-              >
-                <option value="Grid">Grid (fully customizable)</option>
-                <option value="List">List (single column)</option>
-                <option value="Compact">Compact (two columns)</option>
-              </Form.Select>
-              <Form.Text className="text-muted">
-                Grid is fully customizable, list and compact have preset arrangements
-              </Form.Text>
-            </Form.Group>
-            
-            <Form.Group className="mb-4">
-              <Form.Check 
-                type="switch"
-                id="auto-save-switch"
-                label="Auto-save dashboard changes"
-                checked={autoSave}
-                onChange={(e) => setAutoSave(e.target.checked)}
+                title={widget.title}
+                config={widget.config}
+                onRemove={layoutMode === 'edit' ? () => handleRemoveWidget(widget.id) : null}
+                onConfigure={layoutMode === 'edit' ? () => handleConfigureWidget(widget.id) : null}
               />
-              <Form.Text className="text-muted">
-                Changes will be automatically saved after 5 seconds
-              </Form.Text>
-            </Form.Group>
-            
-            <hr />
-            
-            <div className="d-grid gap-2">
-              <Button 
-                variant="primary" 
-                onClick={handleSaveSettings}
-                className="mb-2"
-              >
-                Save Dashboard Settings
-              </Button>
-              
-              <Button 
-                variant="outline-danger" 
-                onClick={handleResetToDefault}
-              >
-                Reset to Default Layout
-              </Button>
             </div>
-          </Form>
-        </Offcanvas.Body>
-      </Offcanvas>
-      
-      {/* Widget Configuration Modal */}
-      {configWidget && (
-        <WidgetConfigModal
-          show={configWidget !== null}
-          onHide={() => setConfigWidget(null)}
-          widgetType={configWidget.type}
-          widgetId={configWidget.id}
-          title={configWidget.title}
-          config={configWidget.config}
-          onSave={handleSaveWidgetConfig}
-          projectOptions={projects}
+          ))}
+        </ResponsiveGridLayout>
+        
+        {/* Replace the Add Widget Offcanvas with WidgetSelector */}
+        <WidgetSelector 
+          show={showWidgetSelector} 
+          onClose={() => setShowWidgetSelector(false)} 
+          onSelectWidget={handleAddWidget} 
+          userRole={user?.role || 'Developer'} 
         />
-      )}
-    </Container>
+        
+        {/* Dashboard Settings Offcanvas */}
+        <Offcanvas show={showSettings} onHide={() => setShowSettings(false)} placement="end">
+          <Offcanvas.Header closeButton>
+            <Offcanvas.Title>Dashboard Settings</Offcanvas.Title>
+          </Offcanvas.Header>
+          <Offcanvas.Body>
+            <Form>
+              <Form.Group className="mb-4">
+                <Form.Label>Theme</Form.Label>
+                <Form.Select 
+                  value={dashboardTheme}
+                  onChange={(e) => {
+                    setDashboardTheme(e.target.value);
+                    setSettingsChanged(true);
+                    setUnsavedChanges(true);
+                  }}
+                >
+                  <option value="Light">Light</option>
+                  <option value="Dark">Dark</option>
+                  <option value="System">System (use device setting)</option>
+                </Form.Select>
+                <Form.Text className="text-muted">
+                  Choose how your dashboard looks
+                </Form.Text>
+              </Form.Group>
+              
+              <Form.Group className="mb-4">
+                <Form.Label>Default Layout</Form.Label>
+                <Form.Select 
+                  value={dashboardLayout}
+                  onChange={(e) => {
+                    handleLayoutModeChange(e.target.value);
+                  }}
+                >
+                  <option value="Grid">Grid (fully customizable)</option>
+                  <option value="List">List (single column)</option>
+                  <option value="Compact">Compact (two columns)</option>
+                </Form.Select>
+                <Form.Text className="text-muted">
+                  Grid is fully customizable, list and compact have preset arrangements
+                </Form.Text>
+              </Form.Group>
+              
+              <Form.Group className="mb-4">
+                <Form.Check 
+                  type="switch"
+                  id="auto-save-switch"
+                  label="Auto-save dashboard changes"
+                  checked={autoSave}
+                  onChange={(e) => setAutoSave(e.target.checked)}
+                />
+                <Form.Text className="text-muted">
+                  Changes will be automatically saved after 5 seconds
+                </Form.Text>
+              </Form.Group>
+              
+              <hr />
+              
+              <div className="d-grid gap-2">
+                <Button 
+                  variant="primary" 
+                  onClick={handleSaveSettings}
+                  className="mb-2"
+                >
+                  Save Dashboard Settings
+                </Button>
+                
+                <Button 
+                  variant="outline-danger" 
+                  onClick={handleResetToDefault}
+                >
+                  Reset to Default Layout
+                </Button>
+              </div>
+            </Form>
+          </Offcanvas.Body>
+        </Offcanvas>
+        
+        {/* Widget Configuration Modal */}
+        {configWidget && (
+          <WidgetConfigModal
+            show={configWidget !== null}
+            onHide={() => setConfigWidget(null)}
+            widgetType={configWidget.type}
+            config={configWidget.config}
+            onSaveConfig={(newConfig) => handleSaveWidgetConfig(configWidget.id, { config: newConfig, title: configWidget.title })}
+            projectOptions={projects}
+          />
+        )}
+      </Container>
+    </div>
   );
 };
 

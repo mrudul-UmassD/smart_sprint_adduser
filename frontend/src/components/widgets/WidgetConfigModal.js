@@ -9,15 +9,13 @@ import axios from 'axios';
  * @param {boolean} props.show - Whether to show the modal
  * @param {function} props.onHide - Function to call when modal is hidden
  * @param {string} props.widgetType - Type of widget being configured
- * @param {string} props.widgetId - ID of widget being configured
- * @param {string} props.title - Current title of the widget
  * @param {Object} props.config - Current configuration of the widget
- * @param {function} props.onSave - Function to call when configuration is saved
+ * @param {function} props.onSaveConfig - Function to call when configuration is saved
  * @param {Object} props.projectOptions - Available projects for selection (optional)
  */
-const WidgetConfigModal = ({ show, onHide, widgetType, config = {}, onSaveConfig }) => {
+const WidgetConfigModal = ({ show, onHide, widgetType, config = {}, onSaveConfig, projectOptions = [] }) => {
   const [configuration, setConfiguration] = useState({});
-  const [projects, setProjects] = useState([]);
+  const [projects, setProjects] = useState(projectOptions || []);
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -25,20 +23,29 @@ const WidgetConfigModal = ({ show, onHide, widgetType, config = {}, onSaveConfig
   useEffect(() => {
     if (show) {
       setConfiguration(config || getDefaultConfig(widgetType));
-      fetchData();
+      if (!projectOptions || projectOptions.length === 0) {
+        fetchData();
+      }
     }
-  }, [show, widgetType, config]);
+  }, [show, widgetType, config, projectOptions]);
   
   const getDefaultConfig = (type) => {
     switch (type) {
       case 'projectSummary':
+      case 'PROJECT_SUMMARY':
         return { projectId: '' };
       case 'myTasks':
         return { limit: 5 };
       case 'burndownChart':
-        return { projectId: '' };
+      case 'BURNDOWN_CHART':
+        return { projectId: '', timeRange: '7days' };
       case 'teamPerformance':
+      case 'TEAM_VELOCITY':
         return { teamId: '' };
+      case 'TASK_PRIORITY':
+        return { projectId: '', limit: 5 };
+      case 'NOTIFICATIONS':
+        return { limit: 5 };
       default:
         return {};
     }
@@ -89,139 +96,190 @@ const WidgetConfigModal = ({ show, onHide, widgetType, config = {}, onSaveConfig
   const renderConfigForm = () => {
     if (loading) return <Spinner animation="border" />;
 
-    // Safely access config.type or use widgetType as fallback
-    const widgetTypeToUse = config?.type || widgetType;
+    // Safely access config type or use widgetType as fallback
+    const widgetTypeToUse = widgetType;
 
-    switch (widgetTypeToUse) {
-      case 'projectSummary':
-      case 'burndownChart':
-        return (
-          <Form.Group className="mb-3">
-            <Form.Label>Select Project</Form.Label>
-            <Form.Select
-              name="projectId"
-              value={configuration.projectId || ''}
-              onChange={handleChange}
-              required
-            >
-              <option value="">Select a project</option>
-              {projects.map(project => (
-                <option key={project._id} value={project._id}>
-                  {project.name}
-                </option>
-              ))}
-            </Form.Select>
-          </Form.Group>
-        );
+    // Project selection widgets
+    if (widgetTypeToUse === 'projectSummary' || 
+        widgetTypeToUse === 'PROJECT_SUMMARY' || 
+        widgetTypeToUse === 'burndownChart' ||
+        widgetTypeToUse === 'BURNDOWN_CHART' ||
+        widgetTypeToUse === 'TASK_PRIORITY') {
+      return (
+        <Form.Group className="mb-3">
+          <Form.Label>Select Project</Form.Label>
+          <Form.Select
+            name="projectId"
+            value={configuration.projectId || ''}
+            onChange={handleChange}
+            required
+          >
+            <option value="">Select a project</option>
+            {projects.map(project => (
+              <option key={project._id} value={project._id}>
+                {project.name}
+              </option>
+            ))}
+          </Form.Select>
+          
+          {(widgetTypeToUse === 'BURNDOWN_CHART' || widgetTypeToUse === 'burndownChart') && (
+            <Form.Group className="mt-3">
+              <Form.Label>Time Range</Form.Label>
+              <Form.Select
+                name="timeRange"
+                value={configuration.timeRange || '7days'}
+                onChange={handleChange}
+              >
+                <option value="7days">Last 7 Days</option>
+                <option value="14days">Last 14 Days</option>
+                <option value="30days">Last 30 Days</option>
+                <option value="sprint">Current Sprint</option>
+              </Form.Select>
+            </Form.Group>
+          )}
+          
+          {(widgetTypeToUse === 'TASK_PRIORITY' || widgetTypeToUse === 'myTasks') && (
+            <Form.Group className="mt-3">
+              <Form.Label>Number of Tasks</Form.Label>
+              <Form.Control
+                type="number"
+                name="limit"
+                value={configuration.limit || 5}
+                onChange={handleChange}
+                min="1"
+                max="20"
+              />
+            </Form.Group>
+          )}
+        </Form.Group>
+      );
       
-      case 'myTasks':
-        return (
-          <Form.Group className="mb-3">
-            <Form.Label>Number of Tasks to Display</Form.Label>
+    } else if (widgetTypeToUse === 'myTasks') {
+      return (
+        <Form.Group className="mb-3">
+          <Form.Label>Number of Tasks to Display</Form.Label>
+          <Form.Control
+            type="number"
+            name="limit"
+            value={configuration.limit || 5}
+            onChange={handleChange}
+            min="1"
+            max="20"
+          />
+        </Form.Group>
+      );
+      
+    } else if (widgetTypeToUse === 'teamPerformance' || widgetTypeToUse === 'TEAM_VELOCITY') {
+      return (
+        <Form.Group className="mb-3">
+          <Form.Label>Select Team</Form.Label>
+          <Form.Select
+            name="teamId"
+            value={configuration.teamId || ''}
+            onChange={handleChange}
+            required
+          >
+            <option value="">Select a team</option>
+            {teams.map(team => (
+              <option key={team._id || team.id} value={team._id || team.id}>
+                {team.name}
+              </option>
+            ))}
+          </Form.Select>
+          
+          <Form.Group className="mt-3">
+            <Form.Label>Number of Sprints</Form.Label>
             <Form.Control
               type="number"
+              name="sprints"
+              value={configuration.sprints || 4}
+              onChange={handleChange}
+              min="1"
+              max="12"
+            />
+          </Form.Group>
+        </Form.Group>
+      );
+      
+    } else if (widgetTypeToUse === 'NOTIFICATIONS') {
+      return (
+        <>
+          <Form.Group className="mb-3">
+            <Form.Label>Number of notifications to display</Form.Label>
+            <Form.Control
+              type="number"
+              min={1}
+              max={20}
               name="limit"
               value={configuration.limit || 5}
               onChange={handleChange}
-              min="1"
-              max="20"
+            />
+            <Form.Text className="text-muted">
+              Maximum number of notifications to show in the widget
+            </Form.Text>
+          </Form.Group>
+          
+          <Form.Group className="mb-3">
+            <Form.Check
+              type="checkbox"
+              label="Show only unread notifications"
+              checked={configuration.onlyUnread || false}
+              onChange={e => handleChange({ target: { name: 'onlyUnread', value: e.target.checked } })}
             />
           </Form.Group>
-        );
-      
-      case 'teamPerformance':
-        return (
+          
           <Form.Group className="mb-3">
-            <Form.Label>Select Team</Form.Label>
-            <Form.Select
-              name="teamId"
-              value={configuration.teamId || ''}
-              onChange={handleChange}
-              required
-            >
-              <option value="">Select a team</option>
-              {teams.map(team => (
-                <option key={team._id || team.id} value={team._id || team.id}>
-                  {team.name}
-                </option>
-              ))}
-            </Form.Select>
-          </Form.Group>
-        );
-      
-      case 'NOTIFICATIONS':
-        return (
-          <>
-            <Form.Group className="mb-3">
-              <Form.Label>Number of notifications to display</Form.Label>
-              <Form.Control
-                type="number"
-                min={1}
-                max={20}
-                value={configuration.limit || 5}
-                onChange={e => handleChange({ target: { name: 'limit', value: parseInt(e.target.value) } })}
-              />
-              <Form.Text className="text-muted">
-                Maximum number of notifications to show in the widget
-              </Form.Text>
-            </Form.Group>
-            
-            <Form.Group className="mb-3">
+            <Form.Label>Notification Types</Form.Label>
+            <div>
               <Form.Check
+                inline
                 type="checkbox"
-                label="Show only unread notifications"
-                checked={configuration.onlyUnread || false}
-                onChange={e => handleChange({ target: { name: 'onlyUnread', value: e.target.checked } })}
+                label="Tasks"
+                checked={configuration.includeTaskNotifications !== false}
+                onChange={e => handleChange({ target: { name: 'includeTaskNotifications', value: e.target.checked } })}
               />
-            </Form.Group>
-            
-            <Form.Group className="mb-3">
-              <Form.Label>Notification Types</Form.Label>
-              <div>
-                <Form.Check
-                  inline
-                  type="checkbox"
-                  label="Tasks"
-                  checked={configuration.includeTaskNotifications !== false}
-                  onChange={e => handleChange({ target: { name: 'includeTaskNotifications', value: e.target.checked } })}
-                />
-                <Form.Check
-                  inline
-                  type="checkbox"
-                  label="Projects"
-                  checked={configuration.includeProjectNotifications !== false}
-                  onChange={e => handleChange({ target: { name: 'includeProjectNotifications', value: e.target.checked } })}
-                />
-                <Form.Check
-                  inline
-                  type="checkbox"
-                  label="System"
-                  checked={configuration.includeSystemNotifications !== false}
-                  onChange={e => handleChange({ target: { name: 'includeSystemNotifications', value: e.target.checked } })}
-                />
-              </div>
-            </Form.Group>
-          </>
-        );
+              <Form.Check
+                inline
+                type="checkbox"
+                label="Projects"
+                checked={configuration.includeProjectNotifications !== false}
+                onChange={e => handleChange({ target: { name: 'includeProjectNotifications', value: e.target.checked } })}
+              />
+              <Form.Check
+                inline
+                type="checkbox"
+                label="System"
+                checked={configuration.includeSystemNotifications !== false}
+                onChange={e => handleChange({ target: { name: 'includeSystemNotifications', value: e.target.checked } })}
+              />
+            </div>
+          </Form.Group>
+        </>
+      );
       
-      default:
-        return <p className="text-muted">No configuration options available for this widget type.</p>;
+    } else {
+      return <p className="text-muted">No configuration options available for this widget type.</p>;
     }
   };
   
   const getWidgetTitle = () => {
-    // Safely access config.type or use widgetType as fallback
-    const widgetTypeToUse = config?.type || widgetType;
+    // Safely access config type or use widgetType as fallback
+    const widgetTypeToUse = widgetType;
     
     switch (widgetTypeToUse) {
       case 'projectSummary':
+      case 'PROJECT_SUMMARY':
         return 'Project Summary';
       case 'myTasks':
         return 'My Tasks';
       case 'burndownChart':
+      case 'BURNDOWN_CHART':
         return 'Burndown Chart';
       case 'teamPerformance':
-        return 'Team Performance';
+      case 'TEAM_VELOCITY':
+        return 'Team Velocity';
+      case 'TASK_PRIORITY':
+        return 'Task Priority Distribution';
       case 'NOTIFICATIONS':
         return 'Configure Notifications Widget';
       default:
@@ -246,10 +304,12 @@ const WidgetConfigModal = ({ show, onHide, widgetType, config = {}, onSaveConfig
           onClick={handleSave}
           disabled={
             loading ||
-            // Safely access config.type using optional chaining
-            ((config?.type === 'projectSummary' || widgetType === 'projectSummary') && !configuration.projectId) ||
-            ((config?.type === 'burndownChart' || widgetType === 'burndownChart') && !configuration.projectId) ||
-            ((config?.type === 'teamPerformance' || widgetType === 'teamPerformance') && !configuration.teamId)
+            // Project widgets require a projectId
+            ((widgetType === 'projectSummary' || widgetType === 'PROJECT_SUMMARY' || 
+              widgetType === 'burndownChart' || widgetType === 'BURNDOWN_CHART' || 
+              widgetType === 'TASK_PRIORITY') && !configuration.projectId) ||
+            // Team widgets require a teamId
+            ((widgetType === 'teamPerformance' || widgetType === 'TEAM_VELOCITY') && !configuration.teamId)
           }
         >
           Save Configuration
