@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button, Form, Spinner, Row, Col } from 'react-bootstrap';
-import { useTheme } from '../../contexts/ThemeContext';
+import { Modal, Button, Form, Spinner } from 'react-bootstrap';
 import axios from 'axios';
-import { getToken, removeTokenAndRedirect } from '../../utils/authUtils';
 
 /**
  * A reusable modal component for configuring widgets
@@ -17,281 +15,246 @@ import { getToken, removeTokenAndRedirect } from '../../utils/authUtils';
  * @param {function} props.onSave - Function to call when configuration is saved
  * @param {Object} props.projectOptions - Available projects for selection (optional)
  */
-const WidgetConfigModal = ({ 
-  show, 
-  onHide, 
-  widgetId, 
-  config, 
-  onSave
-}) => {
-  const [loading, setLoading] = useState(false);
+const WidgetConfigModal = ({ show, onHide, widgetType, config = {}, onSaveConfig }) => {
+  const [configuration, setConfiguration] = useState({});
   const [projects, setProjects] = useState([]);
   const [teams, setTeams] = useState([]);
-  const [formConfig, setFormConfig] = useState({});
-  const { theme } = useTheme();
-  
-  // Load initial configuration
+  const [loading, setLoading] = useState(false);
+
+  // Initialize configuration when modal opens or widget/config changes
   useEffect(() => {
-    if (show && config) {
-      setFormConfig({ ...config });
+    if (show) {
+      setConfiguration(config || getDefaultConfig(widgetType));
       fetchData();
     }
-  }, [show, config]);
+  }, [show, widgetType, config]);
   
-  // Fetch projects and teams data for configuration options
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const token = getToken();
-      
-      if (!token) {
-        removeTokenAndRedirect();
-        return;
-      }
-      
-      // Fetch projects
-      const projectsResponse = await axios.get('/api/projects', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      setProjects(projectsResponse.data);
-      
-      // Fetch teams
-      const teamsResponse = await axios.get('/api/users/teams', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      setTeams(teamsResponse.data);
-      setLoading(false);
-    } catch (err) {
-      console.error('Error fetching configuration data:', err);
-      setLoading(false);
-      
-      if (err.response && err.response.status === 401) {
-        removeTokenAndRedirect();
-      }
+  const getDefaultConfig = (type) => {
+    switch (type) {
+      case 'projectSummary':
+        return { projectId: '' };
+      case 'myTasks':
+        return { limit: 5 };
+      case 'burndownChart':
+        return { projectId: '' };
+      case 'teamPerformance':
+        return { teamId: '' };
+      default:
+        return {};
     }
   };
   
-  // Handle input changes
-  const handleChange = (key, value) => {
-    setFormConfig({
-      ...formConfig,
-      [key]: value
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // Get auth token from localStorage
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('No authentication token found');
+        return;
+      }
+
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      };
+
+      // Fetch projects for project selection
+      const projectsResponse = await axios.get('/api/projects', { headers });
+      setProjects(projectsResponse.data);
+
+      // Fetch teams data
+      const teamsResponse = await axios.get('/api/teams', { headers });
+      setTeams(teamsResponse.data);
+    } catch (error) {
+      console.error('Error fetching configuration data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setConfiguration({
+      ...configuration,
+      [name]: value
     });
   };
   
-  // Handle form submission
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSave(widgetId, formConfig);
+  const handleSave = () => {
+    onSaveConfig(configuration);
+    onHide();
   };
   
-  // Get the title based on widget type
-  const getWidgetTitle = () => {
-    switch (formConfig.type) {
-      case 'projectSummary':
-        return 'Project Summary Widget';
-      case 'myTasks':
-        return 'My Tasks Widget';
-      case 'burndownChart':
-        return 'Burndown Chart Widget';
-      case 'teamPerformance':
-        return 'Team Performance Widget';
-      default:
-        return 'Widget Configuration';
-    }
-  };
-  
-  // Render different configuration forms based on widget type
   const renderConfigForm = () => {
-    if (loading) {
-      return (
-        <div className="text-center p-3">
-          <Spinner animation="border" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </Spinner>
-        </div>
-      );
-    }
-    
-    switch (formConfig.type) {
+    if (loading) return <Spinner animation="border" />;
+
+    // Safely access config.type or use widgetType as fallback
+    const widgetTypeToUse = config?.type || widgetType;
+
+    switch (widgetTypeToUse) {
       case 'projectSummary':
-        return (
-          <Form.Group className="mb-3">
-            <Form.Label>Project</Form.Label>
-            <Form.Select 
-              value={formConfig.projectId || ''} 
-              onChange={(e) => handleChange('projectId', e.target.value)}
-            >
-              <option value="">Select Project</option>
-              {projects.map(project => (
-                <option key={project._id} value={project._id}>
-                  {project.name}
-                </option>
-              ))}
-            </Form.Select>
-            <Form.Text className="text-muted">
-              Select a project to display its summary
-            </Form.Text>
-          </Form.Group>
-        );
-        
-      case 'myTasks':
-        return (
-          <>
-            <Form.Group className="mb-3">
-              <Form.Label>Task Limit</Form.Label>
-              <Form.Control 
-                type="number" 
-                min="1" 
-                max="20" 
-                value={formConfig.limit || 5} 
-                onChange={(e) => handleChange('limit', parseInt(e.target.value))}
-              />
-              <Form.Text className="text-muted">
-                Number of tasks to display (1-20)
-              </Form.Text>
-            </Form.Group>
-            
-            <Form.Group className="mb-3">
-              <Form.Label>Project Filter (Optional)</Form.Label>
-              <Form.Select 
-                value={formConfig.projectId || ''} 
-                onChange={(e) => handleChange('projectId', e.target.value)}
-              >
-                <option value="">All Projects</option>
-                {projects.map(project => (
-                  <option key={project._id} value={project._id}>
-                    {project.name}
-                  </option>
-                ))}
-              </Form.Select>
-              <Form.Text className="text-muted">
-                Filter tasks to a specific project
-              </Form.Text>
-            </Form.Group>
-          </>
-        );
-        
       case 'burndownChart':
         return (
           <Form.Group className="mb-3">
-            <Form.Label>Project</Form.Label>
-            <Form.Select 
-              value={formConfig.projectId || ''} 
-              onChange={(e) => handleChange('projectId', e.target.value)}
+            <Form.Label>Select Project</Form.Label>
+            <Form.Select
+              name="projectId"
+              value={configuration.projectId || ''}
+              onChange={handleChange}
+              required
             >
-              <option value="">Select Project</option>
+              <option value="">Select a project</option>
               {projects.map(project => (
                 <option key={project._id} value={project._id}>
                   {project.name}
                 </option>
               ))}
             </Form.Select>
-            <Form.Text className="text-muted">
-              Select a project to display its burndown chart
-            </Form.Text>
           </Form.Group>
         );
-        
+      
+      case 'myTasks':
+        return (
+          <Form.Group className="mb-3">
+            <Form.Label>Number of Tasks to Display</Form.Label>
+            <Form.Control
+              type="number"
+              name="limit"
+              value={configuration.limit || 5}
+              onChange={handleChange}
+              min="1"
+              max="20"
+            />
+          </Form.Group>
+        );
+      
       case 'teamPerformance':
         return (
           <Form.Group className="mb-3">
-            <Form.Label>Team</Form.Label>
-            <Form.Select 
-              value={formConfig.teamId || ''} 
-              onChange={(e) => handleChange('teamId', e.target.value)}
+            <Form.Label>Select Team</Form.Label>
+            <Form.Select
+              name="teamId"
+              value={configuration.teamId || ''}
+              onChange={handleChange}
+              required
             >
-              <option value="">Select Team</option>
+              <option value="">Select a team</option>
               {teams.map(team => (
-                <option key={team._id} value={team._id}>
+                <option key={team._id || team.id} value={team._id || team.id}>
                   {team.name}
                 </option>
               ))}
             </Form.Select>
-            <Form.Text className="text-muted">
-              Select a team to display its performance metrics
-            </Form.Text>
           </Form.Group>
         );
-        
-      default:
+      
+      case 'NOTIFICATIONS':
         return (
-          <div className="alert alert-warning">
-            No configuration options available for this widget type.
-          </div>
+          <>
+            <Form.Group className="mb-3">
+              <Form.Label>Number of notifications to display</Form.Label>
+              <Form.Control
+                type="number"
+                min={1}
+                max={20}
+                value={configuration.limit || 5}
+                onChange={e => handleChange({ target: { name: 'limit', value: parseInt(e.target.value) } })}
+              />
+              <Form.Text className="text-muted">
+                Maximum number of notifications to show in the widget
+              </Form.Text>
+            </Form.Group>
+            
+            <Form.Group className="mb-3">
+              <Form.Check
+                type="checkbox"
+                label="Show only unread notifications"
+                checked={configuration.onlyUnread || false}
+                onChange={e => handleChange({ target: { name: 'onlyUnread', value: e.target.checked } })}
+              />
+            </Form.Group>
+            
+            <Form.Group className="mb-3">
+              <Form.Label>Notification Types</Form.Label>
+              <div>
+                <Form.Check
+                  inline
+                  type="checkbox"
+                  label="Tasks"
+                  checked={configuration.includeTaskNotifications !== false}
+                  onChange={e => handleChange({ target: { name: 'includeTaskNotifications', value: e.target.checked } })}
+                />
+                <Form.Check
+                  inline
+                  type="checkbox"
+                  label="Projects"
+                  checked={configuration.includeProjectNotifications !== false}
+                  onChange={e => handleChange({ target: { name: 'includeProjectNotifications', value: e.target.checked } })}
+                />
+                <Form.Check
+                  inline
+                  type="checkbox"
+                  label="System"
+                  checked={configuration.includeSystemNotifications !== false}
+                  onChange={e => handleChange({ target: { name: 'includeSystemNotifications', value: e.target.checked } })}
+                />
+              </div>
+            </Form.Group>
+          </>
         );
+      
+      default:
+        return <p className="text-muted">No configuration options available for this widget type.</p>;
+    }
+  };
+  
+  const getWidgetTitle = () => {
+    // Safely access config.type or use widgetType as fallback
+    const widgetTypeToUse = config?.type || widgetType;
+    
+    switch (widgetTypeToUse) {
+      case 'projectSummary':
+        return 'Project Summary';
+      case 'myTasks':
+        return 'My Tasks';
+      case 'burndownChart':
+        return 'Burndown Chart';
+      case 'teamPerformance':
+        return 'Team Performance';
+      case 'NOTIFICATIONS':
+        return 'Configure Notifications Widget';
+      default:
+        return 'Configure Widget';
     }
   };
   
   return (
-    <Modal 
-      show={show} 
-      onHide={onHide}
-      centered
-      scrollable
-      className={theme === 'dark' ? 'dark-modal' : ''}
-      size="lg"
-    >
+    <Modal show={show} onHide={onHide} centered>
       <Modal.Header closeButton>
-        <Modal.Title>{getWidgetTitle()}</Modal.Title>
+        <Modal.Title>Configure {getWidgetTitle()}</Modal.Title>
       </Modal.Header>
-      
-      <Form onSubmit={handleSubmit}>
-        <Modal.Body className="config-modal-body">
-          <Row className="g-3">
-            <Col md={12}>
-              {renderConfigForm()}
-            </Col>
-            
-            {/* Widget notification settings */}
-            <Col md={12}>
-              <Form.Group className="mb-3 border-top pt-3">
-                <Form.Label>Notification Settings</Form.Label>
-                <Form.Check 
-                  type="switch"
-                  id="notifications-switch"
-                  label="Enable notifications for this widget"
-                  checked={formConfig.enableNotifications !== false}
-                  onChange={(e) => handleChange('enableNotifications', e.target.checked)}
-                />
-              </Form.Group>
-            </Col>
-            
-            {/* Widget appearance settings */}
-            <Col md={12}>
-              <Form.Group className="mb-3 border-top pt-3">
-                <Form.Label>Appearance</Form.Label>
-                <Form.Check 
-                  type="switch"
-                  id="compact-switch"
-                  label="Compact view"
-                  checked={formConfig.compactView === true}
-                  onChange={(e) => handleChange('compactView', e.target.checked)}
-                />
-              </Form.Group>
-            </Col>
-          </Row>
-        </Modal.Body>
-        
-        <Modal.Footer>
-          <Button variant="secondary" onClick={onHide}>
-            Cancel
-          </Button>
-          <Button 
-            variant="primary" 
-            type="submit"
-            disabled={loading || 
-              (formConfig.type === 'projectSummary' && !formConfig.projectId) || 
-              (formConfig.type === 'burndownChart' && !formConfig.projectId) || 
-              (formConfig.type === 'teamPerformance' && !formConfig.teamId)
-            }
-          >
-            Save Changes
-          </Button>
-        </Modal.Footer>
-      </Form>
+      <Modal.Body>
+        <Form>{renderConfigForm()}</Form>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="secondary" onClick={onHide}>
+          Cancel
+        </Button>
+        <Button
+          variant="primary"
+          onClick={handleSave}
+          disabled={
+            loading ||
+            // Safely access config.type using optional chaining
+            ((config?.type === 'projectSummary' || widgetType === 'projectSummary') && !configuration.projectId) ||
+            ((config?.type === 'burndownChart' || widgetType === 'burndownChart') && !configuration.projectId) ||
+            ((config?.type === 'teamPerformance' || widgetType === 'teamPerformance') && !configuration.teamId)
+          }
+        >
+          Save Configuration
+        </Button>
+      </Modal.Footer>
     </Modal>
   );
 };
