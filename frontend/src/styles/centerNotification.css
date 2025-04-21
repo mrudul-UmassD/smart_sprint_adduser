@@ -1,0 +1,90 @@
+.center-notification-container {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+
+.center-notification-item {
+  margin-bottom: 10px;
+  max-width: 400px;
+  width: 100%;
+}
+
+.center-notification-alert {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  border: none;
+  padding: 12px 20px;
+  pointer-events: auto;
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+.notification-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notification-icon {
+  font-size: 24px;
+  margin-right: 12px;
+}
+
+.notification-message {
+  font-weight: 500;
+  font-size: 16px;
+}
+
+/* Animation for the dialog box */
+@keyframes pulse {
+  0% {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 4px 25px rgba(0, 0, 0, 0.25);
+    transform: scale(1.02);
+  }
+  100% {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    transform: scale(1);
+  }
+}
+
+/* Alert themes */
+.center-notification-alert.alert-success {
+  background-color: rgba(40, 167, 69, 0.9);
+  color: white;
+  border-left: 5px solid #155724;
+}
+
+.center-notification-alert.alert-danger {
+  background-color: rgba(220, 53, 69, 0.9);
+  color: white;
+  border-left: 5px solid #721c24;
+}
+
+.center-notification-alert.alert-warning {
+  background-color: rgba(255, 193, 7, 0.9);
+  color: #212529;
+  border-left: 5px solid #856404;
+}
+
+.center-notification-alert.alert-info {
+  background-color: rgba(23, 162, 184, 0.9);
+  color: white;
+  border-left: 5px solid #0c5460;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .center-notification-alert.alert-warning {
+    color: white;
+  }
+} 
