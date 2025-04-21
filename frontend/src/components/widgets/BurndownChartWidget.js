@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Spinner, Alert, Form } from 'react-bootstrap';
-import { Line } from 'react-chartjs-2';
-import { FaChartLine } from 'react-icons/fa';
 import axios from 'axios';
-import { getToken, removeTokenAndRedirect } from '../../utils/authUtils';
+import { Card, Alert, Spinner, Button, Form } from 'react-bootstrap';
+import { FiSettings, FiTrash2, FiMaximize2, FiRefreshCw, FiInfo } from 'react-icons/fi';
+import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -12,7 +11,8 @@ import {
   LineElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  Filler
 } from 'chart.js';
 
 // Register Chart.js components
@@ -23,215 +23,298 @@ ChartJS.register(
   LineElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  Filler
 );
 
-const BurndownChartWidget = ({ config = {} }) => {
-  const [chartData, setChartData] = useState(null);
+// Dummy data for empty state
+const DUMMY_BURNDOWN_DATA = {
+  dates: ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7', 'Day 8', 'Day 9', 'Day 10'],
+  remainingTasks: [20, 18, 17, 15, 13, 12, 10, 8, 6, 4],
+  idealBurndown: [20, 18, 16, 14, 12, 10, 8, 6, 4, 0],
+  completed: 16,
+  total: 20
+};
+
+const BurndownChartWidget = ({
+  config,
+  onRemove,
+  onUpdateConfig,
+  onToggleFullscreen
+}) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [projects, setProjects] = useState([]);
-  const [selectedProjectId, setSelectedProjectId] = useState(config.projectId || '');
+  const [burndownData, setBurndownData] = useState(null);
+  const [timeRange, setTimeRange] = useState('2w'); // Default to 2 weeks
+  
+  // Destructure config with defaults
+  const { projectId } = config || {};
 
-  // Fetch available projects
   useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const token = getToken();
-        if (!token) {
-          removeTokenAndRedirect();
-          return;
-        }
+    if (projectId) {
+      fetchBurndownData();
+    } else {
+      // Use dummy data when no project is selected
+      setBurndownData(DUMMY_BURNDOWN_DATA);
+      setLoading(false);
+    }
+  }, [projectId, timeRange]);
 
-        const response = await axios.get('/api/projects', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        
-        setProjects(response.data);
-        
-        // If no project is selected but we have projects, select the first one
-        if (!selectedProjectId && response.data.length > 0) {
-          setSelectedProjectId(response.data[0]._id);
-        }
-      } catch (err) {
-        console.error('Error fetching projects:', err);
-        if (err.response && err.response.status === 401) {
-          removeTokenAndRedirect();
-        }
-      }
-    };
-
-    fetchProjects();
-  }, []);
-
-  // Fetch burndown data when a project is selected
-  useEffect(() => {
-    const fetchBurndownData = async () => {
-      if (!selectedProjectId) {
+  const fetchBurndownData = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError('Authentication required');
         setLoading(false);
         return;
       }
 
-      try {
-        setLoading(true);
-        const token = getToken();
-        
-        if (!token) {
-          removeTokenAndRedirect();
-          return;
+      const response = await axios.get(`/api/analytics/projects/${projectId}/burndown`, {
+        params: { timeRange },
+        headers: {
+          'Authorization': `Bearer ${token}`
         }
-        
-        const response = await axios.get(`/api/analytics/projects/${selectedProjectId}/burndown`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        
-        const { dates, remainingTasks, idealBurndown } = response.data;
-        
-        setChartData({
-          labels: dates,
-          datasets: [
-            {
-              label: 'Actual Remaining Tasks',
-              data: remainingTasks,
-              borderColor: 'rgb(54, 162, 235)',
-              backgroundColor: 'rgba(54, 162, 235, 0.2)',
-              fill: true,
-              tension: 0.1
-            },
-            {
-              label: 'Ideal Burndown',
-              data: idealBurndown,
-              borderColor: 'rgb(255, 99, 132)',
-              backgroundColor: 'rgba(255, 99, 132, 0.1)',
-              borderDash: [5, 5],
-              tension: 0
-            }
-          ]
-        });
-        
-        setLoading(false);
-      } catch (err) {
-        console.error('Error fetching burndown data:', err);
-        
-        if (err.response && err.response.status === 401) {
-          removeTokenAndRedirect();
-        } else {
-          setError(err.response?.data?.message || 'Failed to load burndown data');
-          setLoading(false);
-        }
-      }
-    };
-    
-    fetchBurndownData();
-  }, [selectedProjectId]);
+      });
 
-  const handleProjectChange = (e) => {
-    setSelectedProjectId(e.target.value);
-  };
-
-  if (loading) {
-    return (
-      <div className="text-center p-4">
-        <Spinner animation="border" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </Spinner>
-      </div>
-    );
-  }
-
-  if (error) {
-    return <Alert variant="danger">{error}</Alert>;
-  }
-
-  if (!selectedProjectId) {
-    return (
-      <Alert variant="info">
-        No project selected. Please select a project to view its burndown chart.
-      </Alert>
-    );
-  }
-
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    scales: {
-      y: {
-        beginAtZero: true,
-        title: {
-          display: true,
-          text: 'Remaining Tasks'
-        }
-      },
-      x: {
-        title: {
-          display: true,
-          text: 'Date'
-        }
-      }
-    },
-    plugins: {
-      legend: {
-        position: 'top',
-      },
-      tooltip: {
-        callbacks: {
-          label: function(context) {
-            return `${context.dataset.label}: ${context.raw} tasks`;
-          }
-        }
-      }
+      setBurndownData(response.data);
+    } catch (error) {
+      console.error('Error fetching burndown data:', error);
+      setError(error.response?.data?.message || 'Failed to load burndown data');
+      // Use dummy data on error
+      setBurndownData(DUMMY_BURNDOWN_DATA);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const selectedProject = projects.find(p => p._id === selectedProjectId);
+  const handleTimeRangeChange = (e) => {
+    setTimeRange(e.target.value);
+  };
+
+  const getChartData = () => {
+    // Use dummy data if no real data is available
+    const data = burndownData || DUMMY_BURNDOWN_DATA;
+
+    return {
+      labels: data.dates,
+      datasets: [
+        {
+          label: 'Actual',
+          data: data.remainingTasks,
+          borderColor: 'rgba(54, 162, 235, 1)',
+          backgroundColor: 'rgba(54, 162, 235, 0.2)',
+          borderWidth: 2,
+          tension: 0.1,
+          fill: false,
+          pointBackgroundColor: 'rgba(54, 162, 235, 1)',
+          pointRadius: 3,
+          pointHoverRadius: 5
+        },
+        {
+          label: 'Ideal',
+          data: data.idealBurndown,
+          borderColor: 'rgba(255, 99, 132, 1)',
+          borderWidth: 2,
+          tension: 0,
+          borderDash: [5, 5],
+          fill: false,
+          pointRadius: 0
+        }
+      ]
+    };
+  };
+
+  const getChartOptions = () => {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: {
+            boxWidth: 15,
+            usePointStyle: true,
+            pointStyle: 'circle'
+          }
+        },
+        tooltip: {
+          mode: 'index',
+          intersect: false,
+          callbacks: {
+            title: (tooltipItems) => {
+              return tooltipItems[0].label;
+            },
+            label: (context) => {
+              return `${context.dataset.label}: ${context.parsed.y} tasks`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          title: {
+            display: true,
+            text: 'Date'
+          },
+          grid: {
+            display: false
+          }
+        },
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: 'Remaining Tasks'
+          }
+        }
+      }
+    };
+  };
+
+  const chartData = getChartData();
+  const chartOptions = getChartOptions();
+
+  // Display project selection message when no project is selected
+  const renderProjectSelectionMessage = () => {
+    if (!projectId) {
+      return (
+        <Alert variant="info" className="mb-0 mt-2 mx-3">
+          {!projectId ? "Please select a project to see actual burndown data." : ""}
+          {!projectId && error ? <br /> : ""}
+          {error ? `Error: ${error}` : ""}
+        </Alert>
+      );
+    }
+    
+    if (error) {
+      return <Alert variant="danger" className="mb-0 mt-2 mx-3">{error}</Alert>;
+    }
+    
+    return null;
+  };
 
   return (
-    <div className="burndown-chart-widget h-100 d-flex flex-column">
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h5 className="widget-title m-0">
-          <FaChartLine className="me-2" />
-          Burndown Chart
-        </h5>
-        
-        <Form.Select 
-          size="sm"
-          value={selectedProjectId}
-          onChange={handleProjectChange}
-          style={{ width: '150px' }}
-        >
-          <option value="">Select Project</option>
-          {projects.map(project => (
-            <option key={project._id} value={project._id}>
-              {project.name}
-            </option>
-          ))}
-        </Form.Select>
-      </div>
+    <Card className="dashboard-widget burndown-widget h-100">
+      <Card.Header className="d-flex justify-content-between align-items-center">
+        <div className="d-flex align-items-center">
+          <h5 className="mb-0">Burndown Chart</h5>
+          <Button
+            variant="link"
+            className="p-0 ms-2 text-muted"
+            title="A burndown chart shows remaining tasks over time, comparing actual progress against ideal progress."
+          >
+            <FiInfo />
+          </Button>
+        </div>
+        <div className="widget-controls">
+          <Button 
+            variant="link" 
+            className="p-0 me-2" 
+            onClick={fetchBurndownData}
+            title="Refresh data"
+          >
+            <FiRefreshCw />
+          </Button>
+          <Button 
+            variant="link" 
+            className="p-0 me-2" 
+            onClick={onUpdateConfig}
+            title="Configure widget"
+          >
+            <FiSettings />
+          </Button>
+          <Button 
+            variant="link" 
+            className="p-0 me-2" 
+            onClick={onToggleFullscreen}
+            title="Toggle fullscreen"
+          >
+            <FiMaximize2 />
+          </Button>
+          <Button 
+            variant="link" 
+            className="p-0 text-danger" 
+            onClick={onRemove}
+            title="Remove widget"
+          >
+            <FiTrash2 />
+          </Button>
+        </div>
+      </Card.Header>
       
-      <Card className="flex-grow-1">
-        <Card.Body>
-          {!chartData ? (
-            <Alert variant="info">
-              No burndown data available for this project.
-            </Alert>
-          ) : (
-            <div className="chart-container" style={{ position: 'relative', height: '250px' }}>
-              <Line data={chartData} options={chartOptions} />
-            </div>
-          )}
+      {renderProjectSelectionMessage()}
+      
+      <Card.Body>
+        <div className="mb-3 d-flex gap-2 align-items-center">
+          <Form.Select 
+            size="sm" 
+            value={timeRange} 
+            onChange={handleTimeRangeChange}
+            disabled={!projectId}
+            style={{ maxWidth: '150px' }}
+          >
+            <option value="1w">Last Week</option>
+            <option value="2w">Last 2 Weeks</option>
+            <option value="1m">Last Month</option>
+            <option value="sprint">Current Sprint</option>
+          </Form.Select>
           
-          {selectedProject && chartData && (
-            <div className="text-center mt-2">
-              <small className="text-muted">
-                Project completion: {selectedProject.progress || 0}% | 
-                Start: {new Date(selectedProject.startDate).toLocaleDateString()} | 
-                End: {new Date(selectedProject.endDate).toLocaleDateString()}
-              </small>
-            </div>
+          {loading && (
+            <Spinner 
+              animation="border" 
+              role="status" 
+              size="sm" 
+              className="ms-2"
+            >
+              <span className="visually-hidden">Loading...</span>
+            </Spinner>
           )}
-        </Card.Body>
-      </Card>
-    </div>
+        </div>
+        
+        <div style={{ height: '280px', position: 'relative' }}>
+          {loading ? (
+            <div 
+              className="position-absolute top-0 start-0 end-0 bottom-0 d-flex justify-content-center align-items-center"
+              style={{ backgroundColor: 'rgba(255, 255, 255, 0.7)' }}
+            >
+              <Spinner animation="border" role="status">
+                <span className="visually-hidden">Loading...</span>
+              </Spinner>
+            </div>
+          ) : null}
+          
+          <Line data={chartData} options={chartOptions} />
+        </div>
+        
+        <div className="mt-3 d-flex justify-content-between text-center">
+          <div>
+            <div className="h5 mb-0">{burndownData?.completed || DUMMY_BURNDOWN_DATA.completed}</div>
+            <div className="text-muted small">Tasks Completed</div>
+          </div>
+          <div>
+            <div className="h5 mb-0">{burndownData?.total || DUMMY_BURNDOWN_DATA.total}</div>
+            <div className="text-muted small">Total Tasks</div>
+          </div>
+          <div>
+            <div className="h5 mb-0">
+              {burndownData?.completed && burndownData?.total 
+                ? Math.round((burndownData.completed / burndownData.total) * 100) 
+                : Math.round((DUMMY_BURNDOWN_DATA.completed / DUMMY_BURNDOWN_DATA.total) * 100)}%
+            </div>
+            <div className="text-muted small">Completion</div>
+          </div>
+        </div>
+      </Card.Body>
+      
+      {!projectId && (
+        <Card.Footer className="text-muted text-center">
+          <small>This is a sample visualization. Select a project to see actual data.</small>
+        </Card.Footer>
+      )}
+    </Card>
   );
 };
 

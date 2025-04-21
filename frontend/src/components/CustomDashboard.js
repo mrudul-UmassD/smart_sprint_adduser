@@ -37,7 +37,34 @@ import DashboardWidgets from './widgets/DashboardWidgets';
 // Make the grid responsive
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
+/**
+ * CustomDashboard Component
+ * 
+ * This component provides a fully customizable dashboard experience for users.
+ * It allows users to:
+ * - Add, remove, and configure widgets
+ * - Arrange widgets using drag and drop
+ * - Resize widgets to show more or less information
+ * - Save dashboard layouts for future sessions
+ * - Switch between different layout modes (Grid, List, Compact)
+ * - Apply different themes to the dashboard
+ * 
+ * The dashboard pulls data from user's assigned projects and displays relevant 
+ * metrics and visualizations through various widget types. Each widget can be 
+ * individually configured to show data from specific projects.
+ * 
+ * Dashboard settings are persisted to the backend and loaded on component mount.
+ * Default templates are provided based on user role when no settings exist.
+ * 
+ * Layout modes:
+ * - Grid: Fully customizable with drag & drop and resizing
+ * - List: Single column layout for mobile or simple viewing
+ * - Compact: Two column layout for a more dense display
+ * 
+ * @param {Object} props.user - The current user object with role and permissions
+ */
 const CustomDashboard = ({ user }) => {
+  // State management for dashboard configuration
   const [layout, setLayout] = useState([]);
   const [widgets, setWidgets] = useState([]);
   const [showAddWidget, setShowAddWidget] = useState(false);
@@ -80,7 +107,10 @@ const CustomDashboard = ({ user }) => {
     fetchProjects();
   }, []);
   
-  // Fetch user dashboard settings
+  /**
+   * Fetch user dashboard settings from the backend
+   * If no settings exist, initialize with default templates based on user role
+   */
   useEffect(() => {
     const fetchDashboardSettings = async () => {
       try {
@@ -167,7 +197,10 @@ const CustomDashboard = ({ user }) => {
     };
   }, [unsavedChanges, autoSave]);
   
-  // Initialize default dashboard based on user role
+  /**
+   * Initialize default dashboard based on user role
+   * Uses predefined templates with widgets appropriate for each role
+   */
   const initializeDefaultDashboard = useCallback(() => {
     const role = user?.role || 'Developer'; // Default to Developer if role not available
     const template = getDashboardTemplate(role);
@@ -217,13 +250,16 @@ const CustomDashboard = ({ user }) => {
     setLoading(false);
   }, [user, dashboardLayout]);
   
-  // Show toast notification
+  // Show toast notification for user feedback
   const showNotification = (message) => {
     setToastMessage(message);
     setShowToast(true);
   };
   
-  // Handle layout change
+  /**
+   * Handle layout changes from react-grid-layout
+   * Updates the widget positions in state and marks changes for saving
+   */
   const handleLayoutChange = (newLayout) => {
     // Only process if in edit mode
     if (layoutMode === 'view') return;
@@ -239,7 +275,10 @@ const CustomDashboard = ({ user }) => {
     }
   };
   
-  // Add a new widget
+  /**
+   * Add a new widget to the dashboard
+   * Fetches widget metadata based on the type and adds it to the layout
+   */
   const handleAddWidget = (widgetType, title) => {
     // Try to get widget info from available widgets or WIDGET_METADATA
     let widgetInfo;
@@ -311,7 +350,9 @@ const CustomDashboard = ({ user }) => {
     }
   };
   
-  // Remove a widget
+  /**
+   * Remove a widget from the dashboard
+   */
   const handleRemoveWidget = (widgetId) => {
     const updatedWidgets = widgets.filter(widget => widget.id !== widgetId);
     setWidgets(updatedWidgets);
@@ -324,7 +365,9 @@ const CustomDashboard = ({ user }) => {
     showNotification('Widget removed');
   };
   
-  // Open widget configuration modal
+  /**
+   * Open the configuration modal for a widget
+   */
   const handleConfigureWidget = (widgetId) => {
     const widget = widgets.find(w => w.id === widgetId);
     if (widget) {
@@ -332,7 +375,9 @@ const CustomDashboard = ({ user }) => {
     }
   };
   
-  // Save widget configuration
+  /**
+   * Save widget configuration changes
+   */
   const handleSaveWidgetConfig = (widgetId, newConfig) => {
     const updatedWidgets = widgets.map(widget => {
       if (widget.id === widgetId) {
@@ -351,7 +396,9 @@ const CustomDashboard = ({ user }) => {
     showNotification('Widget configuration updated');
   };
   
-  // Reset to default layout based on role
+  /**
+   * Reset the dashboard to default layout based on user role
+   */
   const handleResetToDefault = () => {
     if (window.confirm('Are you sure you want to reset to the default dashboard layout? This will remove all custom widgets.')) {
       initializeDefaultDashboard();
@@ -359,13 +406,18 @@ const CustomDashboard = ({ user }) => {
     }
   };
   
-  // Toggle edit/view mode
+  /**
+   * Toggle between edit and view modes
+   * Edit mode enables dragging and resizing, view mode disables it
+   */
   const toggleLayoutMode = () => {
     setLayoutMode(layoutMode === 'edit' ? 'view' : 'edit');
     showNotification(layoutMode === 'edit' ? 'View mode - drag disabled' : 'Edit mode - drag enabled');
   };
   
-  // Change the dashboard layout mode
+  /**
+   * Change the dashboard layout mode (Grid, List, Compact)
+   */
   const handleLayoutModeChange = (mode) => {
     if (mode === dashboardLayout) return;
     
@@ -375,7 +427,10 @@ const CustomDashboard = ({ user }) => {
     showNotification(`Layout changed to ${mode} mode`);
   };
   
-  // Save dashboard settings
+  /**
+   * Save dashboard settings to the backend
+   * Stores theme, layout mode, and widget configurations
+   */
   const handleSaveSettings = async () => {
     try {
       setLoading(true);
@@ -493,6 +548,7 @@ const CustomDashboard = ({ user }) => {
     );
   }
   
+  // The main dashboard rendering
   return (
     <div className={`dashboard-container theme-${dashboardTheme} ${layoutMode === 'edit' ? 'dashboard-edit-mode' : 'dashboard-view-mode'}`}>
       <Container fluid className="p-4">

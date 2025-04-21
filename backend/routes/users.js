@@ -1,10 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const Project = require('../models/Project');
 const auth = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const userController = require('../controllers/userController');
 
 // Set up storage for file uploads
 const storage = multer.diskStorage({
@@ -228,6 +230,107 @@ router.post('/profile-picture', auth, upload.single('profilePicture'), async (re
 }, (error, req, res, next) => {
     // Error handler for multer
     res.status(400).json({ error: error.message });
+});
+
+// User project routes
+// Get projects assigned to the current user
+router.get('/projects', auth, async (req, res) => {
+  try {
+    // Get the user ID from the authenticated request
+    const userId = req.user._id;
+    
+    // Find the user with their assigned projects
+    const user = await User.findById(userId).populate('projects');
+    
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    // For admins and project managers, return all projects
+    if (user.role === 'Admin' || user.role === 'Project Manager') {
+      const allProjects = await Project.find().select('_id name description status startDate endDate');
+      return res.json(allProjects);
+    }
+    
+    // For other roles, return only assigned projects
+    return res.json(user.projects);
+  } catch (error) {
+    console.error('Error fetching user projects:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Assign a project to a user (admin/manager only)
+router.post('/:userId/projects/:projectId', auth, async (req, res) => {
+  try {
+    // Check if user has permission
+    if (req.user.role !== 'Admin' && req.user.role !== 'Project Manager') {
+      return res.status(403).json({ success: false, message: 'Permission denied' });
+    }
+    
+    const { userId, projectId } = req.params;
+    
+    // Check if user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    // Check if project exists
+    const project = await Project.findById(projectId);
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'Project not found' });
+    }
+    
+    // Check if project is already assigned to user
+    if (user.projects && user.projects.includes(projectId)) {
+      return res.status(400).json({ success: false, message: 'Project already assigned to this user' });
+    }
+    
+    // Add project to user's projects
+    if (!user.projects) {
+      user.projects = [];
+    }
+    user.projects.push(projectId);
+    await user.save();
+    
+    res.json({ success: true, message: 'Project assigned successfully' });
+  } catch (error) {
+    console.error('Error assigning project to user:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Remove a project assignment from a user (admin/manager only)
+router.delete('/:userId/projects/:projectId', auth, async (req, res) => {
+  try {
+    // Check if user has permission
+    if (req.user.role !== 'Admin' && req.user.role !== 'Project Manager') {
+      return res.status(403).json({ success: false, message: 'Permission denied' });
+    }
+    
+    const { userId, projectId } = req.params;
+    
+    // Check if user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    // Check if project is assigned to user
+    if (!user.projects || !user.projects.includes(projectId)) {
+      return res.status(400).json({ success: false, message: 'Project is not assigned to this user' });
+    }
+    
+    // Remove project from user's projects
+    user.projects = user.projects.filter(p => p.toString() !== projectId);
+    await user.save();
+    
+    res.json({ success: true, message: 'Project removed successfully' });
+  } catch (error) {
+    console.error('Error removing project from user:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
 });
 
 module.exports = router; 
