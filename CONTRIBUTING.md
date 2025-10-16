@@ -1,53 +1,64 @@
 # Contributing to Smart Sprint
 
-Thank you for considering contributing to Smart Sprint! This document outlines the process for contributing to this project.
+Thank you for your interest in contributing to Smart Sprint! This document provides comprehensive guidelines and information for contributors.
+
+## Table of Contents
+
+1. [Code of Conduct](#code-of-conduct)
+2. [Getting Started](#getting-started)
+3. [Development Setup](#development-setup)
+4. [Contributing Process](#contributing-process)
+5. [Coding Standards](#coding-standards)
+6. [Testing Guidelines](#testing-guidelines)
+7. [Pull Request Process](#pull-request-process)
+8. [Issue Reporting](#issue-reporting)
+9. [Community](#community)
 
 ## Code of Conduct
 
-In the interest of fostering an open and welcoming environment, we expect all participants to adhere to respectful behavior both online and in real life.
+### Our Pledge
 
-## How to Contribute
+We pledge to make participation in our project a harassment-free experience for everyone, regardless of age, body size, disability, ethnicity, gender identity and expression, level of experience, nationality, personal appearance, race, religion, or sexual identity and orientation.
 
-### Reporting Bugs
+### Our Standards
 
-Bugs are tracked as [GitHub issues](https://github.com/mrudul-UmassD/smart_sprint_adduser/issues). When you are creating a bug report, please include as many details as possible:
+Examples of behavior that contributes to creating a positive environment include:
 
-1. Use a clear and descriptive title.
-2. Describe the exact steps to reproduce the problem.
-3. Provide specific examples to demonstrate the steps.
-4. Describe the behavior you observed after following the steps.
-5. Explain which behavior you expected to see instead and why.
-6. Include screenshots or animated GIFs if possible.
-7. Include any relevant details about your environment.
+- Using welcoming and inclusive language
+- Being respectful of differing viewpoints and experiences
+- Gracefully accepting constructive criticism
+- Focusing on what is best for the community
+- Showing empathy towards other community members
 
-### Suggesting Enhancements
+## Getting Started
 
-Enhancement suggestions are also tracked as [GitHub issues](https://github.com/mrudul-UmassD/smart_sprint_adduser/issues).
+### Prerequisites
 
-1. Use a clear and descriptive title.
-2. Provide a detailed description of the suggested enhancement.
-3. Explain why this enhancement would be useful.
-4. Include any relevant examples or mockups.
+Before contributing, ensure you have:
 
-### Pull Requests
+- **Node.js** (v18.0.0 or higher)
+- **npm** (v8.0.0 or higher)
+- **MongoDB** (v6.0 or higher)
+- **Git** (latest version)
+- A **GitHub account**
 
-1. Fork the repository.
-2. Create a new branch: `git checkout -b feature/your-feature-name`.
-3. Make your changes.
-4. Commit your changes with meaningful commit messages.
-5. Push to your branch: `git push origin feature/your-feature-name`.
-6. Open a pull request.
+### First-Time Setup
 
-## Development Process
-
-### Setting Up Your Environment
-
-1. Clone the repository.
-2. Install dependencies:
+1. **Fork the repository** on GitHub
+2. **Clone your fork** locally:
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/smart-sprint.git
+   cd smart-sprint
    ```
-   # For backend
-   cd backend
+3. **Add upstream remote**:
+   ```bash
+   git remote add upstream https://github.com/mrudul-UmassD/smart_sprint_adduser.git
+   ```
+4. **Install dependencies**:
+   ```bash
    npm install
+   cd backend && npm install
+   cd ../frontend && npm install
    
    # For frontend
    cd frontend
@@ -94,4 +105,4 @@ Enhancement suggestions are also tracked as [GitHub issues](https://github.com/m
 - `bugfix/*`: For bug fixes
 - `hotfix/*`: For urgent production fixes
 
-Thank you for your contributions! 
+Thank you for your contributions!

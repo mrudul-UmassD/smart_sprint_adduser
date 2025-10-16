@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Alert, Spinner, Form } from 'react-bootstrap';
 import axios from 'axios';
 import { WIDGET_COMPONENTS, WIDGET_TYPES, WIDGET_METADATA } from './WidgetRegistry';
+import WIDGET_REGISTRY from './WidgetRegistry';
 
 /**
  * WidgetRenderer - Renders a widget based on its type
@@ -45,6 +46,15 @@ const WidgetRenderer = ({ type, title, config, onRemove, onConfigure, onToggleFu
     
     if (typeKey && WIDGET_COMPONENTS[WIDGET_TYPES[typeKey]]) {
       return WIDGET_COMPONENTS[WIDGET_TYPES[typeKey]];
+    }
+    
+    // Try looking up in the main WIDGET_REGISTRY
+    const registryEntry = Object.keys(WIDGET_REGISTRY).find(key => 
+      key.toLowerCase() === widgetType.toLowerCase()
+    );
+    
+    if (registryEntry && WIDGET_REGISTRY[registryEntry]?.component) {
+      return WIDGET_REGISTRY[registryEntry].component;
     }
     
     return null;
@@ -179,4 +189,4 @@ const WidgetRenderer = ({ type, title, config, onRemove, onConfigure, onToggleFu
   );
 };
 
-export default WidgetRenderer; 
+export default WidgetRenderer;

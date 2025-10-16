@@ -1,0 +1,164 @@
+# CodeRabbit Configuration for Smart Sprint Project
+
+# Language settings
+language: en-US
+
+# Review settings
+reviews:
+  # Enable automatic reviews on pull requests
+  auto_review: true
+  
+  # Review depth - how thorough the review should be
+  # Options: basic, standard, thorough
+  review_depth: thorough
+  
+  # Enable security scanning
+  security_scan: true
+  
+  # Enable performance analysis
+  performance_analysis: true
+  
+  # Enable code quality checks
+  code_quality: true
+
+# File patterns to include/exclude
+files:
+  # Include patterns
+  include:
+    - "**/*.js"
+    - "**/*.jsx"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.json"
+    - "**/*.md"
+    - "**/*.css"
+    - "**/*.scss"
+    - "**/*.html"
+    - "**/*.py"
+    
+  # Exclude patterns
+  exclude:
+    - "node_modules/**"
+    - "build/**"
+    - "dist/**"
+    - "coverage/**"
+    - "*.log"
+    - ".git/**"
+    - "uploads/**"
+    - "tmp/**"
+    - "*.db"
+    - "*.sqlite"
+
+# Specific checks to enable
+checks:
+  # Code style and formatting
+  style:
+    enabled: true
+    severity: warning
+    
+  # Security vulnerabilities
+  security:
+    enabled: true
+    severity: error
+    
+  # Performance issues
+  performance:
+    enabled: true
+    severity: warning
+    
+  # Best practices
+  best_practices:
+    enabled: true
+    severity: info
+    
+  # Documentation
+  documentation:
+    enabled: true
+    severity: info
+    
+  # Testing
+  testing:
+    enabled: true
+    severity: warning
+
+# Framework-specific settings
+frameworks:
+  react:
+    enabled: true
+    hooks_rules: true
+    jsx_rules: true
+    
+  node:
+    enabled: true
+    express_rules: true
+    
+  mongodb:
+    enabled: true
+    mongoose_rules: true
+
+# Custom rules
+custom_rules:
+  # Enforce consistent naming conventions
+  - name: "camelCase for variables and functions"
+    pattern: "^[a-z][a-zA-Z0-9]*$"
+    applies_to: ["variables", "functions"]
+    severity: warning
+    
+  # Require JSDoc for public functions
+  - name: "JSDoc for public functions"
+    pattern: "function|const.*=.*=>"
+    requires: "jsdoc"
+    severity: info
+
+# Integration settings
+integrations:
+  # GitHub integration
+  github:
+    enabled: true
+    auto_merge: false
+    require_approval: true
+    
+  # Slack notifications (if configured)
+  slack:
+    enabled: false
+    
+  # Email notifications
+  email:
+    enabled: true
+    on_issues: true
+    on_completion: true
+
+# Ignore specific issues
+ignore:
+  # Ignore console.log statements in development
+  - rule: "no-console"
+    files: ["**/*.dev.js", "**/*.test.js"]
+    
+  # Ignore unused variables in test files
+  - rule: "no-unused-vars"
+    files: ["**/*.test.js", "**/*.spec.js"]
+
+# Comment settings
+comments:
+  # Enable inline comments on code
+  inline: true
+  
+  # Enable summary comments
+  summary: true
+  
+  # Comment style
+  style: "constructive"
+  
+  # Maximum comments per review
+  max_comments: 50
+
+# AI model preferences
+ai:
+  # Model to use for code analysis
+  model: "gpt-4"
+  
+  # Enable context-aware suggestions
+  context_aware: true
+  
+  # Enable learning from feedback
+  learning: true

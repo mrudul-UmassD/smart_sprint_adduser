@@ -1,6 +1,12 @@
-# Smart Sprint - Project Management Application
+# Smart Sprint - Agile Project Management System
 
-Smart Sprint is a comprehensive project management application built with the MERN stack (MongoDB, Express.js, React.js, Node.js). It provides features for task management, team collaboration, and project analytics.
+![Smart Sprint Logo](https://img.shields.io/badge/Smart%20Sprint-v1.0.0-blue.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
+![Node.js](https://img.shields.io/badge/node.js-v18+-green.svg)
+![React](https://img.shields.io/badge/react-v18+-blue.svg)
+![MongoDB](https://img.shields.io/badge/mongodb-v6+-green.svg)
+
+Smart Sprint is a comprehensive agile project management system designed to streamline team collaboration, track project progress, and enhance productivity through intuitive dashboards and powerful analytics.
 
 ## Features
 
@@ -137,6 +143,11 @@ npm start
 ```
 
 The application will be available at http://localhost:3000
+
+## ENV - Backend
+MONGODB_URI=mongodb://localhost:27017/smart-sprint
+JWT_SECRET=8NFsP4p03ePIIBCl
+PORT=5000 
 
 ## Troubleshooting
 

@@ -88,12 +88,69 @@ const WIDGET_REGISTRY = {
     defaultDimensions: { w: 6, h: 8 }
   },
   
-  BURNDOWN_CHART: BurndownChartWidget,
-  TASK_PRIORITY: TaskPriorityWidget,
-  TEAM_VELOCITY: TeamVelocityWidget,
-  PROJECT_SUMMARY: ProjectSummaryWidget,
-  NOTIFICATIONS: DashboardNotificationWidget,
-  MY_TASKS: MyTasksWidget,
+  // Additional widget entries with proper component references
+  BURNDOWN_CHART: {
+    component: BurndownChartWidget,
+    title: 'Burndown Chart',
+    description: 'Shows the remaining effort over time for a project',
+    icon: <ShowChart />,
+    defaultConfig: { projectId: null, timeRange: '7days' },
+    roles: ['Admin', 'Project Manager', 'Developer'],
+    defaultDimensions: { w: 6, h: 8 },
+    requiresProject: true
+  },
+  
+  TASK_PRIORITY: {
+    component: TaskPriorityWidget,
+    title: 'Task Priority Distribution',
+    description: 'Displays tasks by priority for a project',
+    icon: <AssignmentTurnedIn />,
+    defaultConfig: { projectId: null, limit: 5 },
+    roles: ['Admin', 'Project Manager', 'Developer'],
+    defaultDimensions: { w: 6, h: 8 },
+    requiresProject: true
+  },
+  
+  TEAM_VELOCITY: {
+    component: TeamVelocityWidget,
+    title: 'Team Velocity',
+    description: 'Shows the velocity of a team across sprints',
+    icon: <ShowChart />,
+    defaultConfig: { teamId: null, sprints: 4 },
+    roles: ['Admin', 'Project Manager', 'Developer'],
+    defaultDimensions: { w: 6, h: 8 }
+  },
+  
+  PROJECT_SUMMARY: {
+    component: ProjectSummaryWidget,
+    title: 'Project Summary',
+    description: 'Overview of a project\'s progress and status',
+    icon: <Assessment />,
+    defaultConfig: { projectId: null },
+    roles: ['Admin', 'Project Manager', 'Developer'],
+    defaultDimensions: { w: 6, h: 8 },
+    requiresProject: true
+  },
+  
+  NOTIFICATIONS: {
+    component: DashboardNotificationWidget,
+    title: 'Recent Notifications',
+    description: 'Shows the most recent notifications',
+    icon: <EventNote />,
+    defaultConfig: { limit: 5 },
+    roles: ['Admin', 'Project Manager', 'Developer'],
+    defaultDimensions: { w: 4, h: 8 }
+  },
+  
+  MY_TASKS: {
+    component: MyTasksWidget,
+    title: 'My Tasks',
+    description: 'Shows your assigned tasks',
+    icon: <AssignmentTurnedIn />,
+    defaultConfig: { limit: 10 },
+    roles: ['Admin', 'Project Manager', 'Developer'],
+    defaultDimensions: { w: 6, h: 8 }
+  },
 };
 
 // Get available widget types for a specific user role
@@ -160,18 +217,35 @@ export const getDashboardTemplate = (role) => {
 
 // Map of widget types to their respective components
 export const WIDGET_COMPONENTS = {
+  // Legacy string-based mappings
   BURNDOWN_CHART: BurndownChartWidget,
   TASK_PRIORITY: TaskPriorityWidget,
   TEAM_VELOCITY: TeamVelocityWidget,
   PROJECT_SUMMARY: ProjectSummaryWidget,
   NOTIFICATIONS: DashboardNotificationWidget,
   MY_TASKS: MyTasksWidget,
+  
+  // Camel case mappings
   'burndownChart': BurndownChartWidget,
   'projectSummary': ProjectSummaryWidget,
   'teamVelocity': TeamVelocityWidget,
   'myTasks': MyTasksWidget,
   'taskPriority': TaskPriorityWidget,
-  'notifications': NotificationsWidget
+  'notifications': NotificationsWidget,
+  
+  // Additional mappings from WIDGET_REGISTRY
+  'TaskProgress': TaskProgressWidget,
+  'TimeTracking': TimeTrackingWidget,
+  'BurndownChart': BurndownWidget,
+  
+  // Ensure all WIDGET_REGISTRY entries are mapped
+  ...Object.keys(WIDGET_REGISTRY).reduce((acc, key) => {
+    const widget = WIDGET_REGISTRY[key];
+    if (widget.component) {
+      acc[key] = widget.component;
+    }
+    return acc;
+  }, {})
 };
 
 // Widget types
