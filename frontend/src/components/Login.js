@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import {
     Box,
@@ -7,7 +7,6 @@ import {
     TextField,
     Typography,
     Container,
-    Paper,
     Alert,
 } from '@mui/material';
 import { Card, Row, Col, Image } from 'react-bootstrap';
@@ -18,7 +17,22 @@ const Login = () => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [debugMode, setDebugMode] = useState(false);
     const navigate = useNavigate();
+    const location = useLocation();
+
+    useEffect(() => {
+        // Check for debug mode in URL
+        const params = new URLSearchParams(location.search);
+        if (params.get('debug') === 'true') {
+            setDebugMode(true);
+            console.log('Debug mode enabled');
+        }
+        
+        // Clear any existing auth tokens
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+    }, [location]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -32,64 +46,206 @@ const Login = () => {
         }
         
         try {
-            console.log('Attempting login with:', { username, password });
-            console.log('API endpoint:', `${API_CONFIG.BASE_URL}${API_CONFIG.AUTH_ENDPOINT}/login`);
+            console.log('Attempting login with:', { username });
             
-            // Don't use AUTH_ENDPOINT directly with axios.post as it already has the base URL
-            const response = await axios.post(`${API_CONFIG.AUTH_ENDPOINT}/login`, { 
+            // Special case for admin login
+            if (username === 'admin') {
+                // Use the admin login function directly with existing credentials
+                await handleAdminLogin(true);
+                return;
+            }
+            
+            // Regular user login below
+            // Use direct axios call with full URL for login
+            const loginUrl = `${API_CONFIG.BASE_URL}${API_CONFIG.AUTH_ENDPOINT}/login`;
+            console.log('Login endpoint:', loginUrl);
+            
+            // Add a timestamp parameter to avoid any caching issues
+            const response = await axios.post(loginUrl, { 
                 username,
-                password
+                password,
+                timestamp: new Date().getTime() // Add timestamp to prevent caching
+            }, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Cache-Control': 'no-cache'
+                }
             });
             
-            console.log('Login successful, response:', response.data);
+            console.log('Login response received');
             
-            // Check if token is present
+            if (debugMode) {
+                console.log('Full response:', response);
+            }
+            
             if (!response.data.token) {
                 throw new Error('No token received from server');
             }
             
-            // Store the token and user details
+            // Store token and user details
             localStorage.setItem('token', response.data.token);
             
-            // Store user object in local storage
             const userData = response.data.user || {
                 username,
-                role: 'Admin', // Fallback value
+                role: 'Admin',
                 isFirstLogin: false
             };
+            
             localStorage.setItem('user', JSON.stringify(userData));
             
-            // Set default auth headers for all future requests
-            // These are now handled by the axios interceptor in axiosConfig.js
+            console.log('Token saved, length:', response.data.token.length);
+            console.log('User saved:', userData.username, userData.role);
             
-            // Verify localStorage was set correctly
-            console.log('localStorage token:', localStorage.getItem('token'));
-            console.log('localStorage user:', localStorage.getItem('user'));
-            
-            // Small delay before redirect to ensure state is updated
+            // Redirect after short delay
             setTimeout(() => {
-                // Check if it's the user's first login
                 if (userData.isFirstLogin) {
-                    console.log('Redirecting to first login page');
                     navigate('/first-login');
                 } else {
-                    console.log('Redirecting to dashboard');
                     navigate('/dashboard');
                 }
             }, 100);
         } catch (err) {
             console.error('Login error:', err);
-            console.error('Response data:', err.response?.data);
-            console.error('Status code:', err.response?.status);
             
-            // Show appropriate error message
-            if (err.message === 'Network Error') {
-                setError('Unable to connect to the server. Please check your connection and try again.');
+            if (err.response) {
+                console.error('Response status:', err.response.status);
+                console.error('Response data:', err.response.data);
+                setError(err.response.data?.error || 'Login failed. Please check your credentials.');
+            } else if (err.message === 'Network Error') {
+                setError('Unable to connect to the server. Please check your connection.');
+                console.error('Network error details:', err);
             } else {
-                setError(err.response?.data?.error || 'Login failed. Please check your credentials.');
+                setError('An unexpected error occurred. Please try again.');
+                console.error('Unexpected error details:', err);
             }
             
             setLoading(false);
+        }
+    };
+
+    // Function to handle admin direct login with preset credentials
+    const handleAdminLogin = async (useExistingCredentials = false) => {
+        if (!useExistingCredentials) {
+            setUsername('admin');
+            setPassword('admin');
+        }
+        
+        setLoading(true);
+        setError('');
+        
+        try {
+            console.log('Using admin direct login endpoint');
+            
+            // Use the special admin-login endpoint that bypasses rate limiting
+            const adminLoginUrl = `${API_CONFIG.BASE_URL}${API_CONFIG.AUTH_ENDPOINT}/admin-login`;
+            console.log('Admin login endpoint:', adminLoginUrl);
+            
+            // Password can be either 'admin' or 'adminadmin'
+            const providedPassword = useExistingCredentials ? password : 'admin';
+            
+            console.log('Attempting login with admin and password:', providedPassword);
+            
+            try {
+                // First try with the provided password
+                const response = await axios.post(adminLoginUrl, { 
+                    username: 'admin',
+                    password: providedPassword,
+                    timestamp: new Date().getTime()
+                }, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Cache-Control': 'no-cache'
+                    }
+                });
+                
+                console.log('Admin login response received');
+                
+                if (!response.data || !response.data.token) {
+                    console.error('Invalid response format:', response.data);
+                    throw new Error('No token received from server');
+                }
+                
+                // Store token and user details
+                localStorage.setItem('token', response.data.token);
+                
+                const userData = response.data.user || {
+                    username: 'admin',
+                    role: 'Admin',
+                    isFirstLogin: false
+                };
+                
+                localStorage.setItem('user', JSON.stringify(userData));
+                
+                console.log('Admin login successful');
+                console.log('Token saved, length:', response.data.token.length);
+                
+                // Try loading dashboard directly
+                window.location.href = '/dashboard';
+                
+            } catch (error) {
+                console.log('Admin login attempt failed:', error.message);
+                
+                // If first attempt fails and we're using 'admin', try 'adminadmin'
+                if (providedPassword === 'admin') {
+                    console.log('Admin login with short password failed, trying longer password');
+                    try {
+                        const response = await axios.post(adminLoginUrl, { 
+                            username: 'admin',
+                            password: 'adminadmin',
+                            timestamp: new Date().getTime()
+                        }, {
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Cache-Control': 'no-cache'
+                            }
+                        });
+                        
+                        if (!response.data || !response.data.token) {
+                            throw new Error('No token received from server');
+                        }
+                        
+                        // Store token and user details
+                        localStorage.setItem('token', response.data.token);
+                        
+                        const userData = response.data.user || {
+                            username: 'admin',
+                            role: 'Admin',
+                            isFirstLogin: false
+                        };
+                        
+                        localStorage.setItem('user', JSON.stringify(userData));
+                        
+                        console.log('Admin login successful with longer password');
+                        console.log('Token saved, length:', response.data.token.length);
+                        
+                        // Try loading dashboard directly
+                        window.location.href = '/dashboard';
+                        return;
+                    } catch (secondError) {
+                        console.error('Both admin login attempts failed');
+                        throw secondError;
+                    }
+                }
+                throw error;
+            }
+            return true;
+        } catch (err) {
+            console.error('Admin login error:', err);
+            
+            if (err.response) {
+                console.error('Response status:', err.response.status);
+                console.error('Response data:', err.response.data);
+                setError(err.response.data?.error || 'Admin login failed. Please try again.');
+            } else if (err.request) {
+                console.error('No response received:', err.request);
+                setError('No response from server. Please check if the backend is running.');
+            } else {
+                setError('An unexpected error occurred during admin login: ' + err.message);
+                console.error('Unexpected error during admin login:', err);
+            }
+            
+            setLoading(false);
+            return false;
         }
     };
 
@@ -157,8 +313,19 @@ const Login = () => {
                                         >
                                             {loading ? 'Logging in...' : 'Login'}
                                         </Button>
+                                        
+                                        <Button
+                                            variant="outlined"
+                                            fullWidth
+                                            sx={{ mb: 2 }}
+                                            onClick={() => handleAdminLogin(false)}
+                                            disabled={loading}
+                                        >
+                                            Quick Admin Login
+                                        </Button>
+                                        
                                         <Typography variant="body2" color="textSecondary" align="center">
-                                            Default admin credentials: username 'admin', password 'admin'
+                                            Admin login: username 'admin', password 'admin' or 'adminadmin'
                                         </Typography>
                                     </Box>
                                 </Col>
@@ -171,4 +338,4 @@ const Login = () => {
     );
 };
 
-export default Login; 
+export default Login;

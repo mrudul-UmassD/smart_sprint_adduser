@@ -2,66 +2,92 @@
 
 /* Dashboard Theme Colors */
 :root {
+  /* Light theme variables */
   --dashboard-background-light: #f8f9fa;
   --dashboard-card-light: #ffffff;
   --dashboard-text-light: #212529;
+  --dashboard-text-secondary-light: #6c757d;
   --dashboard-primary-light: #0d6efd;
   --dashboard-secondary-light: #6c757d;
+  --dashboard-border-light: #dee2e6;
+  --dashboard-hover-light: rgba(0, 0, 0, 0.05);
+  --dashboard-shadow-light: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
   
+  /* Dark theme variables */
   --dashboard-background-dark: #121212;
   --dashboard-card-dark: #1e1e1e;
   --dashboard-text-dark: #e9ecef;
+  --dashboard-text-secondary-dark: #adb5bd;
   --dashboard-primary-dark: #4d94ff;
   --dashboard-secondary-dark: #adb5bd;
+  --dashboard-border-dark: #333333;
+  --dashboard-hover-dark: rgba(255, 255, 255, 0.05);
+  --dashboard-shadow-dark: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.3);
 }
 
 /* Apply themes */
-.theme-light {
-  --bg-color: #f8f9fa;
-  --text-color: #212529;
-  --widget-bg: #ffffff;
-  --widget-border: rgba(0, 0, 0, 0.125);
-  --widget-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-  --header-bg: #ffffff;
-  --header-border: rgba(0, 0, 0, 0.125);
+[data-dashboard-theme="light"] {
+  --dashboard-bg: var(--dashboard-background-light);
+  --widget-bg: var(--dashboard-card-light);
+  --text-color: var(--dashboard-text-light);
+  --text-secondary: var(--dashboard-text-secondary-light);
+  --border-color: var(--dashboard-border-light);
+  --header-bg: var(--dashboard-card-light);
+  --card-shadow: var(--dashboard-shadow-light);
+  --hover-bg: var(--dashboard-hover-light);
+  --primary-color: var(--dashboard-primary-light);
+  --secondary-color: var(--dashboard-secondary-light);
 }
 
-.theme-dark {
-  --bg-color: #212529;
-  --text-color: #f8f9fa;
-  --widget-bg: #2c3034;
-  --widget-border: rgba(255, 255, 255, 0.125);
-  --widget-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-  --header-bg: #343a40;
-  --header-border: rgba(255, 255, 255, 0.125);
+[data-dashboard-theme="dark"] {
+  --dashboard-bg: var(--dashboard-background-dark);
+  --widget-bg: var(--dashboard-card-dark);
+  --text-color: var(--dashboard-text-dark);
+  --text-secondary: var(--dashboard-text-secondary-dark);
+  --border-color: var(--dashboard-border-dark);
+  --header-bg: var(--dashboard-card-dark);
+  --card-shadow: var(--dashboard-shadow-dark);
+  --hover-bg: var(--dashboard-hover-dark);
+  --primary-color: var(--dashboard-primary-dark);
+  --secondary-color: var(--dashboard-secondary-dark);
 }
 
 /* Dashboard Container Styles */
 .dashboard-container {
-  background-color: var(--bg-color);
-  color: var(--text-color);
+  padding: 20px 10px;
   min-height: 100vh;
   transition: background-color 0.3s ease, color 0.3s ease;
+  background-color: var(--dashboard-bg);
+  color: var(--text-color);
 }
 
 /* Widget Container */
 .widget-container {
   position: relative;
   height: 100%;
+  width: 100%;
+  overflow: hidden;
 }
 
 /* Dashboard Widget */
 .widget {
   background-color: var(--widget-bg);
-  border: 1px solid var(--widget-border);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  box-shadow: var(--widget-shadow);
+  box-shadow: var(--card-shadow);
   overflow: hidden;
   transition: all 0.3s ease;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .widget:hover {
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+[data-dashboard-theme="dark"] .widget:hover {
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
 }
 
 /* Widget Controls */
@@ -85,6 +111,13 @@
   font-size: 0.75rem;
   line-height: 1;
   border-radius: 0.2rem;
+  background-color: var(--widget-bg);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+}
+
+.widget-controls .btn:hover {
+  background-color: var(--hover-bg);
 }
 
 .remove-widget-btn {
@@ -95,40 +128,288 @@
 
 /* Widget Configuration Button */
 .config-widget-btn {
-  background-color: rgba(255, 255, 255, 0.8);
-  color: #212529;
-  border: none;
+  background-color: var(--widget-bg);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
 }
 
 .config-widget-btn:hover {
-  background-color: rgba(255, 255, 255, 1);
-}
-
-.theme-dark .config-widget-btn {
-  background-color: rgba(33, 37, 41, 0.8);
-  color: #f8f9fa;
-}
-
-.theme-dark .config-widget-btn:hover {
-  background-color: rgba(33, 37, 41, 1);
+  background-color: var(--hover-bg);
 }
 
 /* Empty Dashboard */
 .empty-dashboard {
-  background-color: var(--dashboard-card-bg, #ffffff);
+  background-color: var(--widget-bg);
   border-radius: 0.5rem;
   padding: 3rem 1rem;
-  box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.05);
+  box-shadow: var(--card-shadow);
+  text-align: center;
 }
 
-.empty-dashboard i {
-  color: var(--dashboard-text-color, #212529);
+.empty-dashboard i, .empty-dashboard svg {
+  color: var(--text-secondary);
   opacity: 0.5;
+  font-size: 2rem;
+  margin-bottom: 1rem;
 }
 
 /* Widget Content Styling */
 .widget-content {
-  padding: 0.5rem;
+  padding: 1rem;
+  flex: 1;
+  overflow: auto;
+}
+
+/* Widget Header */
+.widget-header {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--widget-bg);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.widget-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+/* Notification Styles */
+.notification-container {
+  z-index: 1100;
+}
+
+.notification-toast {
+  background-color: var(--widget-bg);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--card-shadow);
+}
+
+.notification-toast .toast-header {
+  background-color: var(--widget-bg);
+  color: var(--text-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.notification-toast .toast-body {
+  background-color: var(--widget-bg);
+  color: var(--text-color);
+}
+
+/* Widget-specific notifications */
+.widget-notifications {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 100;
+  padding: 10px;
+  width: 100%;
+  max-width: 300px;
+  max-height: 80%;
+  overflow-y: auto;
+  background-color: rgba(var(--widget-bg-rgb, 255, 255, 255), 0.95);
+  backdrop-filter: blur(4px);
+  border-radius: 0 0 0 8px;
+  box-shadow: var(--card-shadow);
+  transition: all 0.3s ease;
+}
+
+[data-dashboard-theme="dark"] .widget-notifications {
+  background-color: rgba(30, 30, 30, 0.95);
+}
+
+.widget-notification-item {
+  margin-bottom: 8px;
+  padding: 8px;
+  border-radius: 4px;
+  border-left: 3px solid var(--primary-color);
+  background-color: var(--widget-bg);
+  transition: transform 0.2s ease;
+}
+
+.widget-notification-item:hover {
+  transform: translateX(-3px);
+}
+
+.widget-notification-item.info {
+  border-left-color: var(--primary-color);
+}
+
+.widget-notification-item.warning {
+  border-left-color: #ffc107;
+}
+
+.widget-notification-item.success {
+  border-left-color: #28a745;
+}
+
+.widget-notification-item.error {
+  border-left-color: #dc3545;
+}
+
+.widget-notification-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.widget-notification-title {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.widget-notification-time {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.widget-notification-message {
+  font-size: 0.875rem;
+}
+
+.widget-notification-bell {
+  position: relative;
+}
+
+.widget-notification-bell.has-notifications:after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  background-color: #dc3545;
+  border-radius: 50%;
+}
+
+/* Dashboard Templates */
+.template-card {
+  background-color: var(--widget-bg);
+  border: 1px solid var(--border-color);
+  transition: all 0.3s ease;
+  height: 100%;
+}
+
+.template-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--card-shadow);
+}
+
+/* Chart Containers */
+.chart-container {
+  width: 100%;
+  height: 100%;
+  min-height: 200px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+[data-dashboard-theme="dark"] .chart-container canvas {
+  filter: brightness(0.95);
+}
+
+/* Form Controls in Dark Mode */
+[data-dashboard-theme="dark"] .form-control {
+  background-color: var(--dashboard-card-dark);
+  color: var(--dashboard-text-dark);
+  border-color: var(--dashboard-border-dark);
+}
+
+[data-dashboard-theme="dark"] .input-group-text {
+  background-color: var(--dashboard-border-dark);
+  color: var(--dashboard-text-dark);
+  border-color: var(--dashboard-border-dark);
+}
+
+/* Modal Styling in Dark Mode */
+[data-dashboard-theme="dark"] .modal-content {
+  background-color: var(--dashboard-card-dark);
+  color: var(--dashboard-text-dark);
+}
+
+[data-dashboard-theme="dark"] .modal-header,
+[data-dashboard-theme="dark"] .modal-footer {
+  border-color: var(--dashboard-border-dark);
+}
+
+[data-dashboard-theme="dark"] .close {
+  color: var(--dashboard-text-dark);
+}
+
+/* Buttons in Dark Mode */
+[data-dashboard-theme="dark"] .btn-outline-secondary {
+  color: var(--dashboard-text-dark);
+  border-color: var(--dashboard-border-dark);
+}
+
+[data-dashboard-theme="dark"] .btn-outline-secondary:hover {
+  background-color: var(--dashboard-hover-dark);
+}
+
+[data-dashboard-theme="dark"] .btn-primary {
+  background-color: var(--dashboard-primary-dark);
+  border-color: var(--dashboard-primary-dark);
+}
+
+/* Dashboard Name Editing */
+.dashboard-name-container {
+  display: flex;
+  align-items: center;
+}
+
+.dashboard-title {
+  margin-bottom: 0;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.dashboard-title svg {
+  margin-left: 0.5rem;
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+}
+
+.dashboard-title:hover svg {
+  opacity: 1;
+}
+
+/* Dashboard Controls */
+.dashboard-controls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+  .dashboard-container {
+    padding: 10px 5px;
+  }
+  
+  .mobile-dashboard-widgets .widget {
+    margin-bottom: 1rem;
+  }
+  
+  .dashboard-controls {
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 1rem;
+  }
+  
+  .dashboard-controls .btn {
+    font-size: 0.8rem;
+    padding: 0.25rem 0.5rem;
+  }
+  
+  .widget-controls {
+    opacity: 1;
+  }
 }
 
 /* Theme Toggle */
@@ -142,12 +423,22 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--dashboard-card-bg, #ffffff);
-  color: var(--dashboard-text-color, #212529);
-  box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
+  background-color: transparent;
+  border: 1px solid #ddd;
+  color: #6c757d;
+  font-size: 18px;
   cursor: pointer;
   z-index: 1000;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
+}
+
+.theme-toggle:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.dashboard-container.dark .theme-toggle {
+  border-color: #455d7a;
+  color: #dcdcdc;
 }
 
 .theme-toggle:hover {
@@ -219,13 +510,6 @@
   background-color: rgba(255, 255, 255, 0.03);
 }
 
-/* Chart Containers */
-.chart-container {
-  width: 100%;
-  height: 100%;
-  min-height: 200px;
-}
-
 /* Responsive Adjustments */
 @media (max-width: 768px) {
   .widget-controls {
@@ -233,8 +517,7 @@
   }
   
   .dashboard-header {
-    padding: 0.5rem 0;
-    margin-bottom: 1rem;
+    padding: 10px;
   }
   
   /* Optimize widget display for mobile */
@@ -329,25 +612,37 @@
   overflow: hidden;
 }
 
-/* Widget card headers */
-.widget-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.widget-title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 500;
-  cursor: move;
-}
-
 .widget-actions {
   display: flex;
   gap: 8px;
+}
+
+.widget-actions button {
+  background: none;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.dashboard-container.light .widget-actions button {
+  color: #6c757d;
+}
+
+.dashboard-container.dark .widget-actions button {
+  color: #dcdcdc;
+}
+
+.widget-actions button:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.dashboard-container.dark .widget-actions button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 /* Edit mode styles */
@@ -438,14 +733,19 @@
 
 /* Widget icons */
 .widget-icon {
-  width: 40px;
-  height: 40px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
   background-color: rgba(13, 110, 253, 0.1);
-  color: var(--dashboard-primary);
-  border-radius: 8px;
+  color: #0d6efd;
+  border-radius: 6px;
+}
+
+.dashboard-container.dark .widget-icon {
+  background-color: rgba(52, 152, 219, 0.2);
+  color: #3498db;
 }
 
 /* Toast positioning */
@@ -485,38 +785,54 @@
 }
 
 .react-grid-item.react-grid-placeholder {
-  background: #7FBCE9;
-  opacity: 0.2;
+  background: rgba(13, 110, 253, 0.2);
+  border-radius: 10px;
   transition-duration: 100ms;
   z-index: 2;
-  border-radius: 4px;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -o-user-select: none;
+  user-select: none;
 }
 
 .react-grid-item.resizing {
   z-index: 1;
+  will-change: width, height;
 }
 
 .react-grid-item.react-draggable-dragging {
   transition: none;
   z-index: 3;
+  will-change: transform;
 }
 
-.react-resizable-handle {
+.react-grid-item > .react-resizable-handle {
   position: absolute;
   width: 20px;
   height: 20px;
   bottom: 0;
   right: 0;
+  background-position: bottom right;
+  padding: 0 3px 3px 0;
+  background-repeat: no-repeat;
+  background-origin: content-box;
+  box-sizing: border-box;
   cursor: se-resize;
-  z-index: 10;
+  filter: invert(60%);
+}
+
+.dashboard-container.dark .react-grid-item > .react-resizable-handle {
+  filter: invert(80%);
 }
 
 /* Dashboard Header Styling */
 .dashboard-header {
   background-color: var(--header-bg);
-  border-bottom: 1px solid var(--header-border);
-  padding: 1rem 0;
-  margin-bottom: 1.5rem;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 /* Loading Animation */
@@ -531,4 +847,243 @@
 .loading-container .spinner-border {
   width: 3rem;
   height: 3rem;
+}
+
+/* Ensure charts adapt to theme */
+.theme-dark .chart-container canvas {
+  filter: brightness(0.9);
+}
+
+/* Override bootstrap elements for dark theme */
+[data-dashboard-theme="dark"] .btn-outline-secondary {
+  color: #e0e0e0;
+  border-color: #6c757d;
+}
+
+[data-dashboard-theme="dark"] .form-control,
+[data-dashboard-theme="dark"] .form-select {
+  background-color: #2d2d2d;
+  color: #e0e0e0;
+  border-color: #444444;
+}
+
+[data-dashboard-theme="dark"] .modal-content {
+  background-color: #1e1e1e;
+  color: #e0e0e0;
+}
+
+[data-dashboard-theme="dark"] .modal-header,
+[data-dashboard-theme="dark"] .modal-footer {
+  border-color: #333333;
+}
+
+/* Enhanced Mobile Responsiveness */
+@media (max-width: 768px) {
+  .dashboard-container {
+    padding: 10px 5px;
+  }
+  
+  .widget-container {
+    margin-bottom: 15px;
+  }
+  
+  .react-grid-item {
+    width: 100% !important;
+    position: static !important;
+    transform: none !important;
+    margin-bottom: 15px;
+    height: auto !important;
+    min-height: 300px;
+  }
+  
+  .react-grid-layout {
+    position: static !important;
+    height: auto !important;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .dashboard-card {
+    margin-bottom: 15px;
+  }
+  
+  .widget-header {
+    padding: 8px 12px;
+  }
+  
+  .widget-body {
+    padding: 12px;
+    height: calc(100% - 45px);
+  }
+  
+  .widget-title {
+    font-size: 14px;
+  }
+  
+  /* Fix buttons in mobile view */
+  .widget-actions button {
+    width: 28px;
+    height: 28px;
+  }
+  
+  /* Make filters more compact on mobile */
+  .filter-section {
+    margin-bottom: 10px;
+  }
+  
+  /* Style dashboard header for mobile */
+  .dashboard-header-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .dashboard-header-row .col {
+    padding: 0 5px;
+  }
+  
+  /* Adjust modal sizes for mobile */
+  .modal-dialog {
+    margin: 10px;
+    max-width: calc(100% - 20px);
+  }
+}
+
+/* Tablet view adjustments */
+@media (min-width: 769px) and (max-width: 992px) {
+  .react-grid-item {
+    width: calc(50% - 20px) !important;
+  }
+}
+
+/* Dashboard header name input styling */
+.dashboard-name-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dashboard-name {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.dashboard-name-edit {
+  border: none;
+  background: transparent;
+  font-size: 1.5rem;
+  font-weight: 600;
+  border-bottom: 2px solid #0d6efd;
+  padding: 0 0 2px 0;
+  width: 100%;
+  outline: none;
+}
+
+.dashboard-container.dark .dashboard-name-edit {
+  color: #ecf0f1;
+  border-bottom-color: #3498db;
+}
+
+/* Dashboard actions styling */
+.dashboard-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Loading animations */
+.widget-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  min-height: 150px;
+}
+
+.widget-empty {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  min-height: 150px;
+  text-align: center;
+  color: #6c757d;
+  padding: 20px;
+}
+
+.dashboard-container.dark .widget-empty {
+  color: #95a5a6;
+}
+
+/* Widget selector styling */
+.widget-option {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  height: 100%;
+}
+
+.widget-option:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.widget-option-icon {
+  font-size: 24px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 15px;
+  background-color: rgba(13, 110, 253, 0.1);
+  color: #0d6efd;
+}
+
+/* Notifications */
+.dashboard-notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1060;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Widget Fullscreen Mode */
+.widget-fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 9999;
+  background-color: #fff;
+  overflow: auto;
+  padding: 20px;
+}
+
+[data-dashboard-theme="dark"] .widget-fullscreen {
+  background-color: #212529;
+  color: #f8f9fa;
+}
+
+.widget-fullscreen .card-body {
+  height: calc(100vh - 60px) !important;
+  overflow: auto;
+}
+
+.widget-fullscreen .widget-controls {
+  display: flex;
 } 

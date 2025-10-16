@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useParams } from 'react-router-dom';
-import axios from 'axios';
+import axios from '../utils/axiosConfig';
 import { 
   Container, 
   Row, 
@@ -67,10 +67,15 @@ const KanbanBoard = () => {
       } catch (err) {
         console.error('Error fetching projects:', err);
         setError('Failed to fetch projects. Please try again later.');
-        setTimeout(() => {
-          localStorage.removeItem('token');
-          navigate('/login');
-        }, 2000);
+        
+        // Only logout on specific auth errors
+        if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+          console.log('Authentication error in Kanban, redirecting to login');
+          setTimeout(() => {
+            localStorage.removeItem('token');
+            navigate('/login');
+          }, 2000);
+        }
       }
     };
 

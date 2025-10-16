@@ -333,4 +333,11 @@ router.delete('/:userId/projects/:projectId', auth, async (req, res) => {
   }
 });
 
+// Dashboard Layout Routes
+router.post('/dashboard-layouts', auth, userController.saveDashboardLayout);
+router.get('/dashboard-layouts', auth, userController.getDashboardLayouts);
+router.get('/dashboard-layouts/:id', auth, userController.getDashboardLayoutById);
+router.put('/dashboard-layouts/:id', auth, userController.updateDashboardLayout);
+router.delete('/dashboard-layouts/:id', auth, userController.deleteDashboardLayout);
+
 module.exports = router; 

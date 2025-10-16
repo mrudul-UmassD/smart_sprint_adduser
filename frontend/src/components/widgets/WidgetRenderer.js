@@ -1,12 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Form, Spinner } from 'react-bootstrap';
+import { Card, Alert, Spinner, Form } from 'react-bootstrap';
 import axios from 'axios';
-import { 
-  WIDGET_TYPES, 
-  WIDGET_COMPONENTS, 
-  getWidgetComponent,
-  WIDGET_METADATA
-} from './WidgetRegistry';
+import { WIDGET_COMPONENTS, WIDGET_TYPES, WIDGET_METADATA } from './WidgetRegistry';
 
 /**
  * WidgetRenderer - Renders a widget based on its type
@@ -17,191 +12,170 @@ import {
  * @param {Object} props.config - Widget configuration
  * @param {function} props.onRemove - Function to call when widget is removed
  * @param {function} props.onConfigure - Function to call when widget is configured
- * @param {boolean} props.fullscreen - Whether the widget should be in fullscreen mode
- * @param {function} props.onToggleFullscreen - Function to call when the widget's fullscreen state is toggled
+ * @param {function} props.onToggleFullscreen - Function to call when widget is toggled to fullscreen
  */
-const WidgetRenderer = ({ 
-  type, 
-  title, 
-  config = {}, 
-  onRemove, 
-  onConfigure,
-  fullscreen = false,
-  onToggleFullscreen
-}) => {
-  const [projects, setProjects] = useState([]);
-  const [selectedProject, setSelectedProject] = useState(config.projectId || '');
+const WidgetRenderer = ({ type, title, config, onRemove, onConfigure, onToggleFullscreen }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
-  // Fetch available projects from backend
+  const [projects, setProjects] = useState([]);
+  const [selectedProject, setSelectedProject] = useState(config?.projectId || '');
+  
+  // Fetch projects if needed
   useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        setLoading(true);
-        const token = localStorage.getItem('token');
-        if (!token) {
-          console.error('No authentication token found');
-          setLoading(false);
-          return;
-        }
-
-        const response = await axios.get('/api/projects', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        setProjects(response.data);
-        setLoading(false);
-      } catch (err) {
-        console.error('Error fetching projects:', err);
-        setError('Failed to load projects');
-        setLoading(false);
-      }
-    };
-
-    fetchProjects();
-  }, []);
-
-  // Handle project selection change
-  const handleProjectChange = (e) => {
-    const projectId = e.target.value;
-    setSelectedProject(projectId);
+    // Only fetch projects if the widget needs project selection and we don't have a projectId in config
+    const widgetMetadata = getWidgetMetadata(type);
+    const needsProject = widgetMetadata?.requiredConfigFields?.includes('projectId');
     
-    // Update the config with new project ID
-    if (onConfigure) {
-      const updatedConfig = { ...config, projectId };
-      onConfigure(null, { title, config: updatedConfig });
+    if (needsProject) {
+      fetchProjects();
+    }
+  }, [type]);
+  
+  // Get the component for the widget type
+  const getWidgetComponent = (widgetType) => {
+    // Try direct lookup first (for string types)
+    if (WIDGET_COMPONENTS[widgetType]) {
+      return WIDGET_COMPONENTS[widgetType];
+    }
+    
+    // Try looking up via WIDGET_TYPES constants if direct lookup fails
+    const typeKey = Object.keys(WIDGET_TYPES).find(key => 
+      WIDGET_TYPES[key].toLowerCase() === widgetType.toLowerCase()
+    );
+    
+    if (typeKey && WIDGET_COMPONENTS[WIDGET_TYPES[typeKey]]) {
+      return WIDGET_COMPONENTS[WIDGET_TYPES[typeKey]];
+    }
+    
+    return null;
+  };
+  
+  // Get metadata for this widget type
+  const getWidgetMetadata = (widgetType) => {
+    // Try direct lookup in WIDGET_METADATA
+    const typeKey = Object.keys(WIDGET_TYPES).find(key => 
+      WIDGET_TYPES[key].toLowerCase() === widgetType.toLowerCase()
+    );
+    
+    if (typeKey && WIDGET_METADATA[WIDGET_TYPES[typeKey]]) {
+      return WIDGET_METADATA[WIDGET_TYPES[typeKey]];
+    }
+    
+    return null;
+  };
+  
+  // Fetch available projects for selection
+  const fetchProjects = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get('/api/users/projects', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setProjects(response.data);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+      setError('Failed to load projects');
+      setLoading(false);
     }
   };
-
-  // Determine which component to render based on the widget type
-  const renderWidgetContent = () => {
-    let WidgetComponent;
-    
-    // First check in WIDGET_COMPONENTS
-    if (WIDGET_COMPONENTS[type]) {
-      WidgetComponent = WIDGET_COMPONENTS[type];
-    } 
-    // Then try getWidgetComponent for legacy widgets
-    else {
-      WidgetComponent = getWidgetComponent(type);
+  
+  // Handle project selection change
+  const handleProjectChange = (e) => {
+    setSelectedProject(e.target.value);
+    // If there's an onConfigure handler, allow parent to update config
+    if (onConfigure) {
+      onConfigure({ projectId: e.target.value });
     }
+  };
+  
+  // Determine if this widget needs project selection
+  const needsProjectSelector = () => {
+    const widgetMetadata = getWidgetMetadata(type);
+    return widgetMetadata?.requiredConfigFields?.includes('projectId');
+  };
+  
+  // Render the widget content
+  const renderWidgetContent = () => {
+    const WidgetComponent = getWidgetComponent(type);
     
-    // If component not found
     if (!WidgetComponent) {
       return (
-        <div className="text-center p-4">
-          <div className="alert alert-warning">
-            Widget type "{type}" not found
-          </div>
-        </div>
+        <Alert variant="danger">
+          Widget type {type} not found. Please check WidgetRegistry.js
+        </Alert>
       );
     }
-
-    // Merge the selected project with other config options
-    const updatedConfig = {
+    
+    // Prepare combined config with selected project if needed
+    const widgetConfig = {
       ...config,
-      projectId: selectedProject || config.projectId
+      projectId: selectedProject || config?.projectId
     };
-
+    
     return (
       <WidgetComponent
-        config={updatedConfig}
+        config={widgetConfig}
         onRemove={onRemove}
         onUpdateConfig={onConfigure}
         onToggleFullscreen={onToggleFullscreen}
       />
     );
   };
-
-  // Check if this widget needs a project selector
-  const needsProjectSelector = () => {
-    // Check WIDGET_METADATA for this requirement
-    if (WIDGET_TYPES[type] && WIDGET_METADATA[WIDGET_TYPES[type]]) {
-      const metadata = WIDGET_METADATA[WIDGET_TYPES[type]];
-      return metadata.requiredConfigFields?.includes('projectId');
+  
+  // Render project selector if widget requires it
+  const renderProjectSelector = () => {
+    if (!needsProjectSelector()) return null;
+    
+    if (loading) {
+      return <Spinner animation="border" size="sm" className="mb-3" />;
     }
     
-    // Check for project-related types
-    return type.includes('PROJECT') || 
-           type.includes('BURNDOWN') || 
-           type === 'projectSummary' ||
-           type === 'burndownChart';
+    if (error) {
+      return <Alert variant="danger" className="mb-3">{error}</Alert>;
+    }
+    
+    if (projects.length === 0) {
+      return <Alert variant="info" className="mb-3">No projects available</Alert>;
+    }
+    
+    return (
+      <Form.Group className="mb-3">
+        <Form.Label>Select Project</Form.Label>
+        <Form.Select 
+          value={selectedProject || config?.projectId || ''}
+          onChange={handleProjectChange}
+        >
+          <option value="">Choose a project...</option>
+          {projects.map(project => (
+            <option key={project._id} value={project._id}>
+              {project.name}
+            </option>
+          ))}
+        </Form.Select>
+      </Form.Group>
+    );
   };
-
+  
   return (
-    <Card className="h-100 shadow-sm widget-card">
-      <Card.Header className="d-flex justify-content-between align-items-center">
-        <div>{title || 'Widget'}</div>
-        <div className="d-flex">
-          {onRemove && (
-            <Button 
-              variant="link" 
-              className="p-0 me-2 text-danger" 
-              onClick={onRemove}
-              title="Remove widget"
-            >
-              <i className="bi bi-trash"></i>
-            </Button>
-          )}
-          {onConfigure && (
-            <Button 
-              variant="link" 
-              className="p-0 me-2" 
-              onClick={onConfigure}
-              title="Configure widget"
-            >
-              <i className="bi bi-gear"></i>
-            </Button>
-          )}
-          {onToggleFullscreen && (
-            <Button 
-              variant="link" 
-              className="p-0" 
-              onClick={onToggleFullscreen}
-              title={fullscreen ? "Exit fullscreen" : "Fullscreen"}
-            >
-              <i className={`bi bi-${fullscreen ? 'fullscreen-exit' : 'fullscreen'}`}></i>
-            </Button>
-          )}
-        </div>
-      </Card.Header>
-      
-      {needsProjectSelector() && (
-        <div className="px-3 pt-2">
-          <Form.Group>
-            <Form.Select
-              value={selectedProject || ''}
-              onChange={handleProjectChange}
-              disabled={loading}
-              size="sm"
-            >
-              <option value="">Select a project</option>
-              {projects.map(project => (
-                <option key={project._id} value={project._id}>
-                  {project.name}
-                </option>
-              ))}
-            </Form.Select>
-          </Form.Group>
-        </div>
+    <div className="h-100">
+      {needsProjectSelector() && !selectedProject && !config?.projectId ? (
+        <Card className="h-100">
+          <Card.Header>
+            <h5 className="mb-0">{title || 'Configure Widget'}</h5>
+          </Card.Header>
+          <Card.Body>
+            {renderProjectSelector()}
+            <Alert variant="info">
+              Please select a project to display data
+            </Alert>
+          </Card.Body>
+        </Card>
+      ) : (
+        renderWidgetContent()
       )}
-      
-      <Card.Body className="p-2">
-        {loading ? (
-          <div className="text-center p-5">
-            <Spinner animation="border" />
-            <p className="mt-2">Loading widget data...</p>
-          </div>
-        ) : error ? (
-          <div className="alert alert-danger">{error}</div>
-        ) : (
-          renderWidgetContent()
-        )}
-      </Card.Body>
-    </Card>
+    </div>
   );
 };
 

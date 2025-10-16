@@ -1,54 +1,70 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
-import axios from 'axios';
-import {
-    Box,
-    Paper,
-    Typography,
-    List,
-    ListItem,
-    ListItemText,
-    Alert as MuiAlert,
-    CircularProgress,
-} from '@mui/material';
-import { Container, Row, Col, Card, Badge, ProgressBar, Button, Alert, Spinner, Dropdown, Modal } from 'react-bootstrap';
-import { 
-    Person as PersonIcon, 
-    Group as GroupIcon, 
-    Folder as FolderOpenIcon,
-    AccountCircle as AccountCircleIcon,
-    Work, 
-    EmojiEvents, 
-    Assignment, 
-    Timeline, 
-    DeveloperMode,
-    Dashboard as DashboardIcon
-} from '@mui/icons-material';
-import { 
-    BsFillSunFill, 
-    BsFillMoonFill, 
-    BsGearFill, 
-    BsBoxArrowInDown, 
-    BsBoxArrowUp, 
-    BsLayoutWtf 
-} from 'react-icons/bs';
+import React, { useState, useEffect, useCallback, useRef, useContext } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import axios from '../utils/axiosConfig';
+import { Container, Row, Col, Card, Badge, ProgressBar, Alert, Dropdown, Modal, InputGroup, Form, Button, Spinner, ButtonGroup } from 'react-bootstrap';
+import { v4 as uuidv4 } from 'uuid';
 import API_CONFIG from '../config';
-import { Bar, Pie, Line } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title } from 'chart.js';
 import moment from 'moment';
 import { Responsive, WidthProvider } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
+import '../styles/dashboard.css';
+import { toast } from 'react-hot-toast';
+
+// Import components
 import WidgetSelector from './widgets/WidgetSelector';
 import DashboardWidgets from './widgets/DashboardWidgets';
 import WidgetConfigModal from './widgets/WidgetConfigModal';
-import DashboardImportExport from './DashboardImportExport';
-import DashboardTemplates from './DashboardTemplates';
-import { useTheme } from '../utils/themeUtils';
-import '../styles/Dashboard.css';
-import { getToken, removeTokenAndRedirect } from '../utils/authUtils';
-import DashboardHeader from './DashboardHeader';
+import DashboardTemplates from './Dashboard/DashboardTemplates';
+import DashboardFilters from './Dashboard/DashboardFilters';
 import WidgetNotifications from './widgets/WidgetNotifications';
+
+// Import widget components
+import ProjectSummaryWidget from './widgets/ProjectSummaryWidget';
+import MyTasksWidget from './widgets/MyTasksWidget';
+import BurndownChartWidget from './widgets/BurndownChartWidget';
+import TeamPerformanceWidget from './widgets/TeamPerformanceWidget';
+
+// Import icons - cleaned up to only used ones
+import { 
+    BsFilter
+} from 'react-icons/bs';
+
+import { 
+    FaPlus, 
+    FaCog, 
+    FaMoon, 
+    FaSun, 
+    FaTrash,
+    FaThLarge,
+    FaSave,
+    FaCheck,
+    FaEdit,
+    FaFileExport,
+    FaFileImport
+} from 'react-icons/fa';
+
+import { 
+    FiTrash2
+} from 'react-icons/fi';
+
+import {
+  WIDGET_COMPONENTS,
+  DEFAULT_WIDGETS,
+  DEFAULT_WIDGET_LAYOUTS,
+  WIDGET_METADATA,
+  WIDGET_TYPES,
+  DEFAULT_WIDGET_CONFIGS
+} from './widgets/WidgetRegistry';
+
+// Simple auth utils since we don't have the actual file
+const getToken = () => localStorage.getItem('token');
+const removeTokenAndRedirect = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  // Navigation will be handled in the component
+};
 
 // Register ChartJS components
 ChartJS.register(
@@ -65,22 +81,26 @@ ChartJS.register(
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
-// Import the widget components
-import ProjectSummaryWidget from './widgets/ProjectSummaryWidget';
-import TasksWidget from './widgets/TasksWidget';
-import BurndownChartWidget from './widgets/BurndownChartWidget';
-import TeamPerformanceWidget from './widgets/TeamPerformanceWidget';
-
 // Define the widget components registry
 const widgetComponents = {
   'projectSummary': ProjectSummaryWidget,
-  'myTasks': TasksWidget,
+  'myTasks': MyTasksWidget,
   'burndownChart': BurndownChartWidget,
   'teamPerformance': TeamPerformanceWidget
 };
 
 const Dashboard = () => {
-    const { theme, toggleTheme } = useTheme();
+    // Theme state - since toggleTheme was removed to fix duplication
+    const [theme, setTheme] = useState(localStorage.getItem('dashboardTheme') || 'light');
+    
+    // Toggle theme function
+    const toggleTheme = useCallback(() => {
+        const newTheme = theme === 'light' ? 'dark' : 'light';
+        setTheme(newTheme);
+        localStorage.setItem('dashboardTheme', newTheme);
+        document.body.setAttribute('data-dashboard-theme', newTheme);
+    }, [theme]);
+    
     const [userDetails, setUserDetails] = useState(null);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(true);
@@ -91,18 +111,37 @@ const Dashboard = () => {
     const [selectedProject, setSelectedProject] = useState('all');
     const [projects, setProjects] = useState([]);
     const [showWidgetSelector, setShowWidgetSelector] = useState(false);
+    const [showWidgetConfig, setShowWidgetConfig] = useState(false);
+    const [currentWidget, setCurrentWidget] = useState(null);
+    const [showFilters, setShowFilters] = useState(false);
+    const [showTemplates, setShowTemplates] = useState(false);
     const [widgets, setWidgets] = useState([]);
     const [layouts, setLayouts] = useState({ lg: [] });
     const [showImportExport, setShowImportExport] = useState(false);
-    const [showTemplates, setShowTemplates] = useState(false);
-    const [showConfigModal, setShowConfigModal] = useState(false);
-    const [selectedWidget, setSelectedWidget] = useState(null);
-    const [isDashboardModified, setIsDashboardModified] = useState(false);
-    const [showImportExportModal, setShowImportExportModal] = useState(false);
-    const [importConfig, setImportConfig] = useState('');
-    const [isImportMode, setIsImportMode] = useState(false);
     const [showTemplatesModal, setShowTemplatesModal] = useState(false);
-    const [isMobile, setIsMobile] = useState(false);
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+    const [dashboardName, setDashboardName] = useState('My Dashboard');
+    const [isEditingName, setIsEditingName] = useState(false);
+    const [savingLayout, setSavingLayout] = useState(false);
+    const [savedLayouts, setSavedLayouts] = useState([]);
+    const [isDashboardModified, setIsDashboardModified] = useState(false);
+    const [isImportMode, setIsImportMode] = useState(false);
+    const [importConfig, setImportConfig] = useState(null);
+    const [width, setWidth] = useState(window.innerWidth);
+    
+    const [filters, setFilters] = useState({
+        dateRange: {
+            startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+            endDate: new Date()
+        },
+        projectId: '',
+        userId: '',
+        priority: '',
+        status: ''
+    });
+    const [activeFiltersCount, setActiveFiltersCount] = useState(0);
+    const [notification, setNotification] = useState({ show: false, message: '', type: '' });
+    const fileInputRef = useRef(null);
 
     useEffect(() => {
         // Check for debug mode in URL
@@ -128,54 +167,53 @@ const Dashboard = () => {
         const token = getToken();
         
         if (!token) {
-            removeTokenAndRedirect();
+            console.log('No token found, redirecting to login');
+            navigate('/login');
             return;
         }
-
+        
         try {
             setLoading(true);
-            // Use AUTH_ENDPOINT for fetching user details without manually setting headers
-            // as they're already added by axios interceptors
-            const response = await axios.get(`${API_CONFIG.AUTH_ENDPOINT}/me`, {
-                headers: { Authorization: `Bearer ${token}` }
+            console.log('Fetching user details from:', `${API_CONFIG.API_URL}/api/users/me`);
+            console.log('Using token of length:', token.length);
+            
+            const response = await axios.get(`${API_CONFIG.API_URL}/api/users/me`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
             });
             
-            if (response.data && response.data.success && response.data.user) {
-                setUserDetails(response.data.user);
+            console.log('User details API response:', response.data);
+            
+            if (response.data) {
+                setUserDetails(response.data);
+                // Moved projects fetching to useEffect to prevent circular dependencies
             } else {
-                throw new Error('Invalid response format');
+                console.error('Invalid user data received:', response.data);
+                setError('Invalid user data received');
             }
+        } catch (error) {
+            console.error('Error fetching user details:', error);
+            console.error('Response data:', error.response?.data);
+            console.error('Response status:', error.response?.status);
             
+            setError('Failed to load user data: ' + (error.response?.data?.message || error.message));
+            
+            // Create a minimal user object to allow the dashboard to render
+            setUserDetails({
+                username: 'User',
+                role: 'User',
+                team: 'Unknown',
+                level: 'Unknown'
+            });
+            
+            // Only redirect on specific auth errors
+            if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+                console.log('Authentication error, redirecting to login');
+                setTimeout(() => navigate('/login'), 3000);
+            }
+        } finally {
             setLoading(false);
-        } catch (err) {
-            console.error('Error fetching user details:', err);
-            
-            // Try using stored user data as fallback
-            const userStr = localStorage.getItem('user');
-            if (userStr) {
-                try {
-                    const userData = JSON.parse(userStr);
-                    console.log('Using stored user data as fallback:', userData);
-                    setUserDetails(userData);
-                    setLoading(false);
-                    return;
-                } catch (parseErr) {
-                    console.error('Error parsing stored user data:', parseErr);
-                }
-            }
-            
-            const errorMsg = err.response?.data?.error || 'Failed to fetch user details';
-            setError(errorMsg);
-            setLoading(false);
-            
-            if (err.response?.status === 401) {
-                console.error('Authentication failed, redirecting to login');
-                setTimeout(() => {
-                    localStorage.removeItem('token');
-                    localStorage.removeItem('user');
-                    navigate('/login');
-                }, 2000);
-            }
         }
     };
 
@@ -210,14 +248,17 @@ const Dashboard = () => {
         }
     };
 
-    useEffect(() => {
-        fetchProjects();
-        fetchDashboardData(timeRange, selectedProject);
-    }, [timeRange, selectedProject, userDetails._id]);
-
-    const fetchProjects = async () => {
+    const fetchProjects = useCallback(async (userData) => {
         try {
-            const response = await axios.get(`${API_CONFIG.PROJECTS_ENDPOINT}`);
+            const token = getToken();
+            if (!token) return;
+            
+            const response = await axios.get(`${API_CONFIG.API_URL}/api/projects`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
             if (response.data) {
                 setProjects(response.data);
             }
@@ -225,20 +266,61 @@ const Dashboard = () => {
             console.error('Error fetching projects:', err);
             setError('Failed to load projects');
         }
-    };
+    }, []);
 
-    const fetchDashboardData = async (range, projectId) => {
+    const fetchDashboardData = useCallback(async (range, projectId) => {
         try {
             setLoading(true);
             
             // Build query params
             let params = new URLSearchParams();
             params.append('timeRange', range);
+            
             if (projectId !== 'all') {
                 params.append('projectId', projectId);
             }
             
-            const response = await axios.get(`${API_CONFIG.ANALYTICS_ENDPOINT}/dashboard?${params.toString()}`);
+            // Add new filters - Fix date formatting to ensure valid dates are sent
+            if (filters.dateRange.startDate && filters.dateRange.endDate) {
+                // Ensure we're working with valid Date objects
+                const startDate = new Date(filters.dateRange.startDate);
+                const endDate = new Date(filters.dateRange.endDate);
+                
+                // Only add dates if they're valid
+                if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+                    params.append('startDate', startDate.toISOString());
+                    params.append('endDate', endDate.toISOString());
+                } else {
+                    console.warn('Invalid date detected, skipping date filter', {
+                        startDate: filters.dateRange.startDate,
+                        endDate: filters.dateRange.endDate
+                    });
+                }
+            }
+            
+            if (filters.userId) {
+                params.append('userId', filters.userId);
+            }
+            
+            if (filters.priority) {
+                params.append('priority', filters.priority);
+            }
+            
+            if (filters.status) {
+                params.append('status', filters.status);
+            }
+            
+            const token = getToken();
+            if (!token) return;
+            
+            console.log('Fetching dashboard data from:', `${API_CONFIG.API_URL}${API_CONFIG.ANALYTICS_ENDPOINT}/dashboard`);
+            console.log('With params:', Object.fromEntries(params));
+            
+            const response = await axios.get(`${API_CONFIG.API_URL}${API_CONFIG.ANALYTICS_ENDPOINT}/dashboard`, {
+                params: Object.fromEntries(params)
+            });
+            
+            console.log('Dashboard data response:', response.data);
             
             if (response.data) {
                 setDashboardData(response.data);
@@ -247,10 +329,125 @@ const Dashboard = () => {
             setLoading(false);
         } catch (err) {
             console.error('Error fetching dashboard data:', err);
-            setError('Failed to load dashboard data');
+            console.error('Error response:', err.response?.data);
+            setError('Failed to load dashboard data: ' + (err.response?.data?.message || err.message));
             setLoading(false);
         }
-    };
+    }, [filters]);
+
+    // Fetch saved dashboard layouts from the backend
+    const fetchSavedLayouts = useCallback(async () => {
+        try {
+            const token = getToken();
+            if (!token) {
+                console.log('No token available for fetching saved layouts');
+                return;
+            }
+
+            console.log('Fetching saved dashboard layouts...');
+            const response = await axios.get(`${API_CONFIG.API_URL}${API_CONFIG.USERS_ENDPOINT}/dashboard-layouts`);
+            
+            console.log('Saved layouts response:', response.data);
+            
+            if (response.data && response.data.layouts) {
+                setSavedLayouts(response.data.layouts);
+                
+                // If there's a default layout, set it as current
+                const defaultLayout = response.data.layouts.find(layout => layout.isDefault);
+                if (defaultLayout) {
+                    console.log('Found default layout:', defaultLayout.name);
+                    setDashboardName(defaultLayout.name);
+                    setLayouts(defaultLayout.layouts || {});
+                    setWidgets(defaultLayout.widgets || []);
+                    setIsDashboardModified(false);
+                }
+            } else {
+                console.log('No saved layouts found or invalid format');
+            }
+        } catch (error) {
+            console.error('Error fetching saved layouts:', error);
+            console.error('Error response:', error.response?.data);
+            // Don't set an error message here to avoid blocking the dashboard
+            console.log('Failed to load saved dashboard layouts, using default');
+        }
+    }, []);
+
+    // Generate a default layout for widgets
+    const generateDefaultLayout = useCallback((widgetList) => {
+        const defaultLayouts = {
+            lg: widgetList.map((widget, index) => ({
+                i: widget.id,
+                x: (index % 2) * 6,
+                y: Math.floor(index / 2) * 8,
+                w: 6,
+                h: 8,
+                minW: 3,
+                minH: 4
+            }))
+        };
+        setLayouts(defaultLayouts);
+    }, []);
+
+    // Load dashboard configuration
+    const loadDashboard = useCallback(async () => {
+        try {
+            setLoading(true);
+            console.log('Loading dashboard configuration...');
+            
+            const response = await axios.get(`${API_CONFIG.API_URL}${API_CONFIG.USERS_ENDPOINT}/settings/dashboard`);
+            
+            console.log('Dashboard config response:', response.data);
+            
+            if (response.data && response.data.widgets) {
+                setWidgets(response.data.widgets);
+                if (response.data.layouts) {
+                    setLayouts(response.data.layouts);
+                } else {
+                    // Generate default layout if none exists
+                    generateDefaultLayout(response.data.widgets);
+                }
+                setIsDashboardModified(false);
+            } else {
+                console.log('No saved dashboard configuration found, using default');
+                // Set a default widget if user has no configuration
+                const defaultWidget = {
+                    id: uuidv4(),
+                    type: 'projectSummary',
+                    config: { projectId: 'all' }
+                };
+                setWidgets([defaultWidget]);
+                generateDefaultLayout([defaultWidget]);
+            }
+        } catch (error) {
+            console.error('Error loading dashboard:', error);
+            console.error('Error response:', error.response?.data);
+            
+            // Create a default widget on error
+            console.log('Setting up default dashboard due to error');
+            const defaultWidget = {
+                id: uuidv4(),
+                type: 'projectSummary',
+                config: { projectId: 'all' }
+            };
+            setWidgets([defaultWidget]);
+            generateDefaultLayout([defaultWidget]);
+        } finally {
+            setLoading(false);
+        }
+    }, [generateDefaultLayout]);
+
+    // Now that the functions are defined, we can use them in the useEffect
+    useEffect(() => {
+        // Check if we have userDetails before trying to fetch data
+        if (userDetails) {
+            console.log('User details available, fetching dashboard data');
+            fetchProjects();
+            fetchDashboardData(timeRange, selectedProject);
+            fetchSavedLayouts();
+            // Also try to load the dashboard configuration
+            loadDashboard();
+        }
+    }, [userDetails, timeRange, selectedProject, fetchProjects, fetchDashboardData, fetchSavedLayouts, loadDashboard]);
 
     const getRangeLabel = () => {
         switch (timeRange) {
@@ -347,147 +544,143 @@ const Dashboard = () => {
         },
     };
 
-    // Load user's saved dashboard configuration
-    useEffect(() => {
-        if (userDetails) {
-            loadDashboard();
-        }
-    }, [userDetails]);
-
-    // Load dashboard configuration
-    const loadDashboard = async () => {
-        try {
-            setLoading(true);
-            const token = getToken();
-            const response = await axios.get('/api/users/settings/dashboard', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            if (response.data && response.data.widgets) {
-                setWidgets(response.data.widgets);
-                if (response.data.layouts) {
-                    setLayouts(response.data.layouts);
-                } else {
-                    // Generate default layout if none exists
-                    generateDefaultLayout(response.data.widgets);
-                }
-            } else {
-                // Set a default widget if user has no configuration
-                const defaultWidget = {
-                    id: uuidv4(),
-                    type: 'tasks',
-                    config: { limit: 5 }
-                };
-                setWidgets([defaultWidget]);
-                generateDefaultLayout([defaultWidget]);
-            }
-            setLoading(false);
-        } catch (error) {
-            console.error('Error loading dashboard:', error);
-            // Set a default widget on error
-            const defaultWidget = {
-                id: uuidv4(),
-                type: 'tasks',
-                config: { limit: 5 }
-            };
-            setWidgets([defaultWidget]);
-            generateDefaultLayout([defaultWidget]);
-            setLoading(false);
-        }
-    };
-
-    // Generate a default layout for widgets
-    const generateDefaultLayout = (widgetList) => {
-        const defaultLayouts = {
-            lg: widgetList.map((widget, index) => ({
-                i: widget.id,
-                x: (index % 2) * 6,
-                y: Math.floor(index / 2) * 8,
-                w: 6,
-                h: 8,
-                minW: 3,
-                minH: 4
-            }))
-        };
-        setLayouts(defaultLayouts);
-    };
-
     // Save dashboard configuration
     const saveDashboardConfig = useCallback(async () => {
         if (!userDetails) return;
         
         try {
+            console.log('Saving dashboard configuration...');
             const token = getToken();
-            await axios.post('/api/users/settings/dashboard', {
+            await axios.post(`${API_CONFIG.API_URL}${API_CONFIG.SETTINGS_ENDPOINT}/dashboard`, {
                 widgets,
                 layouts
-            }, {
-                headers: { Authorization: `Bearer ${token}` }
             });
-            console.log('Dashboard configuration saved');
+            
+            console.log('Dashboard configuration saved successfully');
             setIsDashboardModified(false);
+            
+            // Show success notification
+            setNotification({
+                show: true,
+                message: 'Dashboard configuration saved successfully',
+                type: 'success'
+            });
         } catch (error) {
             console.error('Error saving dashboard configuration:', error);
+            console.error('Error response:', error.response?.data);
+            setError('Failed to save dashboard: ' + (error.response?.data?.message || error.message));
             setIsDashboardModified(true);
+            
+            // Show error notification
+            setNotification({
+                show: true,
+                message: 'Failed to save dashboard configuration',
+                type: 'error'
+            });
+            
+            // Don't logout on save error
+            if (error.response && error.response.status === 401) {
+                console.log('Token expired during save, but not redirecting yet');
+            }
         }
     }, [widgets, layouts, userDetails]);
 
-    // Save dashboard config when widgets or layouts change
+    // Save dashboard config when widgets or layouts change - limit frequency of saves
     useEffect(() => {
-        if (widgets.length > 0 && !loading) {
+        // Only save if we have widgets and aren't in initial loading state
+        if (widgets.length > 0 && !loading && userDetails && isDashboardModified) {
+            console.log('Dashboard modified, scheduling save...');
+            
             // Use debounce to avoid too many API calls
             const timeoutId = setTimeout(() => {
+                console.log('Executing scheduled save');
                 saveDashboardConfig();
-            }, 1000);
+            }, 5000); // Increased to 5 seconds to reduce frequency
             
-            return () => clearTimeout(timeoutId);
+            return () => {
+                console.log('Clearing scheduled save timeout');
+                clearTimeout(timeoutId);
+            };
         }
-    }, [widgets, layouts, loading, saveDashboardConfig]);
+    }, [widgets, layouts, loading, saveDashboardConfig, userDetails, isDashboardModified]);
 
     // Add a new widget
     const handleAddWidget = (widgetType, widgetConfig) => {
+        const widgetId = uuidv4();
+        
+        // Get default config from registry or use empty object
+        const defaultConfig = DEFAULT_WIDGET_CONFIGS[widgetType] || {};
+        
+        // Create new widget
         const newWidget = {
-            id: uuidv4(),
+            id: widgetId,
             type: widgetType,
-            config: widgetConfig
+            config: {
+                ...defaultConfig,
+                ...widgetConfig,
+                id: widgetId // Add id to config too so it's available to the widget
+            }
         };
         
-        const updatedWidgets = [...widgets, newWidget];
-        setWidgets(updatedWidgets);
+        // Add to widgets array
+        setWidgets([...widgets, newWidget]);
         
-        // Update layout with the new widget
-        const newLayouts = { ...layouts };
-        if (!newLayouts.lg) newLayouts.lg = [];
+        // Get widget metadata for default size
+        const metadata = WIDGET_METADATA[widgetType];
+        const defaultSize = metadata?.defaultSize || { w: 6, h: 4 };
         
-        newLayouts.lg.push({
-            i: newWidget.id,
-            x: (newLayouts.lg.length % 2) * 6,
-            y: Infinity, // Put it at the bottom
-            w: 6,
-            h: 8,
-            minW: 3,
-            minH: 4
-        });
+        // Add to layout
+        const newLayout = [
+            ...layouts.lg,
+            {
+                i: widgetId,
+                x: (layouts.lg.length * 6) % 12,
+                y: Math.floor((layouts.lg.length * 6) / 12) * 4,
+                w: defaultSize.w,
+                h: defaultSize.h,
+                minW: 3,
+                minH: 3
+            }
+        ];
         
-        setLayouts(newLayouts);
+        setLayouts({ ...layouts, lg: newLayout });
+        setIsDashboardModified(true);
+        
+        // Close widget selector
+        setShowWidgetSelector(false);
+        
+        // Show success notification
+        toast.success('Widget added successfully!');
     };
 
     // Remove widget from dashboard
     const handleRemoveWidget = (widgetId) => {
+        console.log('Removing widget:', widgetId);
         setWidgets(widgets.filter(widget => widget.id !== widgetId));
         
         const updatedLayouts = { ...layouts };
         updatedLayouts.lg = updatedLayouts.lg.filter(layout => layout.i !== widgetId);
         setLayouts(updatedLayouts);
+        setIsDashboardModified(true);
+        
+        // Show notification
+        setNotification({
+            show: true,
+            message: 'Widget removed',
+            type: 'info'
+        });
     };
 
     // Open widget configuration modal
     const handleConfigureWidget = (widget) => {
-        setSelectedWidget(widget);
-        setShowConfigModal(true);
+        console.log('Configuring widget:', widget);
+        setCurrentWidget(widget);
+        setShowWidgetConfig(true);
     };
 
     // Update widget configuration
     const handleUpdateWidgetConfig = (widgetId, newConfig) => {
+        console.log('Updating widget config:', widgetId, newConfig);
         setWidgets(prevWidgets => 
             prevWidgets.map(widget => 
                 widget.id === widgetId 
@@ -495,11 +688,20 @@ const Dashboard = () => {
                     : widget
             )
         );
+        setIsDashboardModified(true);
+        
+        // Show notification
+        setNotification({
+            show: true,
+            message: 'Widget configuration updated',
+            type: 'success'
+        });
     };
 
-    // Handle layout changes
+    // Handle layout changes - make sure to mark as modified
     const handleLayoutChange = (layout, allLayouts) => {
         setLayouts(allLayouts);
+        setIsDashboardModified(true);
     };
 
     // Import dashboard configuration
@@ -515,125 +717,426 @@ const Dashboard = () => {
         }
     };
 
-    // Handle applying a template
+    // Handle applying a dashboard template
     const handleApplyTemplate = (template) => {
-        setLayouts(template.layouts);
-        setWidgets(template.widgets);
-        setIsDashboardModified(true);
-        setShowTemplatesModal(false);
+        try {
+            // Apply the template configuration
+            setWidgets(template.widgets || []);
+            
+            // Create layouts from template widgets
+            const newLayouts = { lg: [] };
+            template.widgets.forEach(widget => {
+                if (widget.layout) {
+                    newLayouts.lg.push({
+                        i: widget.id || uuidv4(),
+                        ...widget.layout
+                    });
+                }
+            });
+            
+            setLayouts(newLayouts);
+            setDashboardName(`${template.name}`);
+            
+            setNotification({
+                show: true,
+                message: `${template.name} template applied successfully`,
+                type: 'success'
+            });
+        } catch (error) {
+            console.error('Error applying template:', error);
+            setError('Failed to apply dashboard template');
+        }
     };
 
     // Export dashboard configuration
     const handleExportDashboard = () => {
+        // Create export configuration
         const dashboardConfig = {
             layouts,
             widgets
         };
         
-        setImportConfig(JSON.stringify(dashboardConfig, null, 2));
-        setIsImportMode(false);
-        setShowImportExportModal(true);
+        // Just open the export dialog directly
+        exportDashboardConfig();
     };
 
-    // Import dashboard configuration
-    const handleImportDashboard = () => {
-        setImportConfig('');
-        setIsImportMode(true);
-        setShowImportExportModal(true);
+    // Export dashboard configuration as JSON file
+    const exportDashboardConfig = () => {
+        const config = {
+            name: dashboardName,
+            layouts,
+            widgets,
+            exportDate: new Date().toISOString()
+        };
+
+        // Create a blob and download link
+        const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${dashboardName.replace(/\s+/g, '_')}_config.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        setNotification({
+            show: true,
+            message: 'Dashboard configuration exported successfully',
+            type: 'success'
+        });
     };
 
-    // Process imported dashboard configuration
-    const processImport = () => {
+    // Import dashboard configuration from JSON file
+    const importDashboardConfig = (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const config = JSON.parse(e.target.result);
+                
+                // Validate the imported configuration
+                if (!config.layouts || !config.widgets) {
+                    throw new Error('Invalid configuration file');
+                }
+                
+                // Apply the imported configuration
+                setDashboardName(config.name || 'Imported Dashboard');
+                setLayouts(config.layouts);
+                setWidgets(config.widgets);
+                
+                setNotification({
+                    show: true,
+                    message: 'Dashboard configuration imported successfully',
+                    type: 'success'
+                });
+            } catch (error) {
+                console.error('Error importing configuration:', error);
+                setError('Failed to import dashboard configuration');
+            }
+        };
+        reader.readAsText(file);
+        
+        // Reset the input to allow reimporting the same file
+        event.target.value = null;
+    };
+
+    // Toggle edit mode for dashboard name
+    const toggleEditingName = () => {
+        setIsEditingName(!isEditingName);
+    };
+
+    // Handle applying filters from the filter modal
+    const handleApplyFilters = (newFilters) => {
+        setFilters(newFilters);
+        
+        // Count active filters for the badge
+        let count = 0;
+        if (newFilters.dateRange.startDate && newFilters.dateRange.endDate) count++;
+        if (newFilters.projectId) count++;
+        if (newFilters.userId) count++;
+        if (newFilters.priority) count++;
+        if (newFilters.status) count++;
+        
+        setActiveFiltersCount(count);
+    };
+
+    // Save current dashboard layout
+    const saveCurrentLayout = async () => {
+        setSavingLayout(true);
         try {
-            const config = JSON.parse(importConfig);
+            const token = getToken();
+            if (!token) {
+                setError('Authentication required');
+                setSavingLayout(false);
+                return;
+            }
+
+            // Clean and sanitize the data before sending
+            // Remove any invalid data like circular references or non-serializable values
+            const sanitizedWidgets = widgets.map(widget => ({
+                id: widget.id,
+                type: widget.type,
+                config: { ...widget.config }
+            }));
+
+            // Make sure layouts have proper format
+            const sanitizedLayouts = {};
+            if (layouts && layouts.lg && Array.isArray(layouts.lg)) {
+                sanitizedLayouts.lg = layouts.lg.map(item => ({
+                    i: item.i,
+                    x: item.x || 0,
+                    y: item.y || 0,
+                    w: item.w || 6,
+                    h: item.h || 4,
+                    minW: item.minW || 3,
+                    minH: item.minH || 3
+                }));
+            } else {
+                // Create a default layout if none exists
+                sanitizedLayouts.lg = sanitizedWidgets.map((widget, index) => ({
+                    i: widget.id,
+                    x: (index % 2) * 6,
+                    y: Math.floor(index / 2) * 8,
+                    w: 6,
+                    h: 8,
+                    minW: 3,
+                    minH: 3
+                }));
+            }
+
+            console.log('Saving current layout to API...');
+            console.log('Layout data:', { 
+                name: dashboardName, 
+                layouts: sanitizedLayouts, 
+                widgets: sanitizedWidgets 
+            });
+
+            await axios.post(`${API_CONFIG.API_URL}${API_CONFIG.USERS_ENDPOINT}/dashboard-layouts`, {
+                name: dashboardName,
+                layouts: sanitizedLayouts,
+                widgets: sanitizedWidgets,
+                isDefault: true
+            });
+
+            // Show success notification
+            setNotification({
+                show: true,
+                message: 'Dashboard layout saved successfully',
+                type: 'success'
+            });
             
-            if (!config.layouts || !config.widgets) {
-                throw new Error('Invalid configuration format');
+            // Reset the modified flag
+            setIsDashboardModified(false);
+            
+            // Refresh saved layouts
+            fetchSavedLayouts();
+        } catch (error) {
+            console.error('Error saving layout:', error);
+            console.error('Error response:', error.response?.data);
+            
+            // Try to get a more detailed error message
+            let errorMessage = 'Failed to save dashboard layout';
+            if (error.response?.data?.message) {
+                errorMessage += ': ' + error.response.data.message;
+            } else if (error.message) {
+                errorMessage += ': ' + error.message;
             }
             
-            setLayouts(config.layouts);
-            setWidgets(config.widgets);
-            setIsDashboardModified(true);
-            setShowImportExportModal(false);
+            setError(errorMessage);
             
-            alert('Dashboard configuration imported successfully!');
-        } catch (err) {
-            alert('Invalid configuration format. Please check your JSON.');
+            // Show error notification
+            setNotification({
+                show: true,
+                message: errorMessage,
+                type: 'error'
+            });
+        } finally {
+            setSavingLayout(false);
         }
     };
 
-    // Render widget based on its type and configuration
-    const renderWidget = (widgetId) => {
-        const config = widgets.find(widget => widget.id === widgetId);
-        
-        if (!config || !config.type || !widgetComponents[config.type]) {
-            return <div>Invalid widget configuration</div>;
-        }
-        
-        const WidgetComponent = widgetComponents[config.type];
-        
-        return (
-            <div className="widget-container h-100 position-relative">
-                <div className="widget-controls position-absolute top-0 end-0 m-2 d-flex bg-light rounded p-1 shadow-sm">
-                    <Button 
-                        variant="link" 
-                        size="sm" 
-                        className="p-0 text-primary me-2" 
-                        onClick={() => handleConfigureWidget(config)}
-                        title="Configure Widget"
-                    >
-                        <i className="fas fa-cog"></i>
-                    </Button>
-                    <Button 
-                        variant="link" 
-                        size="sm" 
-                        className="p-0 text-danger" 
-                        onClick={() => handleRemoveWidget(config.id)}
-                        title="Remove Widget"
-                    >
-                        <i className="fas fa-times"></i>
-                    </Button>
-                </div>
-                <WidgetNotifications widgetId={config.id} widgetType={config.type} />
-                <WidgetComponent config={config} />
-            </div>
-        );
+    // Toggle filters visibility
+    const toggleFilters = () => {
+        setShowFilters(!showFilters);
     };
 
     // Add mobile detection effect to disable dragging and resizing on mobile
     useEffect(() => {
-        const checkIfMobile = () => {
-            const mobileQuery = window.matchMedia('(max-width: 768px)');
-            setIsMobile(mobileQuery.matches);
+        const handleResize = () => {
+            setWidth(window.innerWidth);
+            setIsMobile(window.innerWidth < 768);
         };
+
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    // Import dashboard configuration
+    const handleImportDashboard = () => {
+        // Just open the file input directly
+        if (fileInputRef.current) {
+            fileInputRef.current.click();
+        }
+    };
+
+    const processImport = (config) => {
+        try {
+            if (config.layouts && config.widgets) {
+                setLayouts(config.layouts);
+                setWidgets(config.widgets);
+                setIsDashboardModified(true);
+                toast.success("Dashboard imported successfully!");
+            } else {
+                toast.error("Invalid dashboard configuration format");
+            }
+        } catch (error) {
+            console.error("Error processing import config:", error);
+            toast.error("Failed to parse dashboard configuration");
+        }
+    };
+
+    // Update the getFilteredConfig function to ensure compatibility with our new filters
+    const getFilteredConfig = (widget) => {
+        const filteredConfig = { ...widget.config };
         
-        // Check initially
-        checkIfMobile();
-        
-        // Set up a listener for screen size changes
-        const mobileQuery = window.matchMedia('(max-width: 768px)');
-        const handleMobileChange = (e) => {
-            setIsMobile(e.matches);
-        };
-        
-        // Add event listener (using the correct method based on browser support)
-        if (mobileQuery.addEventListener) {
-            mobileQuery.addEventListener('change', handleMobileChange);
-        } else {
-            // For older browsers
-            mobileQuery.addListener(handleMobileChange);
+        // Apply project filter
+        if (filters.projectId && ['projectSummary', 'burndownChart'].includes(widget.type)) {
+            filteredConfig.projectId = filters.projectId;
         }
         
-        // Clean up
-        return () => {
-            if (mobileQuery.removeEventListener) {
-                mobileQuery.removeEventListener('change', handleMobileChange);
-            } else {
-                // For older browsers
-                mobileQuery.removeListener(handleMobileChange);
-            }
+        // Apply user filter
+        if (filters.userId && widget.type === 'myTasks') {
+            filteredConfig.userId = filters.userId;
+        }
+        
+        // Apply date filters to all widgets
+        if (filters.dateRange.startDate && filters.dateRange.endDate) {
+            filteredConfig.dateRange = {
+                startDate: filters.dateRange.startDate,
+                endDate: filters.dateRange.endDate
+            };
+        }
+        
+        return {
+            ...widget,
+            config: filteredConfig
         };
-    }, []);
+    };
+
+    const renderWidget = (widget) => {
+        const WidgetComponent = WIDGET_COMPONENTS[widget.type];
+        
+        if (!WidgetComponent) {
+            console.error(`Widget type ${widget.type} not found in registry`);
+            return (
+                <Card className="h-100 widget-error">
+                    <Card.Body className="d-flex flex-column justify-content-center align-items-center">
+                        <div className="text-danger mb-2">
+                            <i className="bi bi-exclamation-triangle-fill fs-1"></i>
+                        </div>
+                        <h5>Widget Error</h5>
+                        <p className="text-center text-muted">
+                            Widget type "{widget.type}" not found
+                        </p>
+                    </Card.Body>
+                </Card>
+            );
+        }
+
+        return (
+            <WidgetComponent
+                key={widget.id}
+                config={widget.config}
+                isFullScreen={widget.isFullScreen || false}
+                toggleFullScreen={() => toggleWidgetFullscreen(widget.id)}
+                onRemove={() => handleRemoveWidget(widget.id)}
+                onUpdateConfig={(newConfig) => handleUpdateWidgetConfig(widget.id, newConfig)}
+            />
+        );
+    };
+
+    // Initialize with default widgets if no saved layout exists
+    const initializeDefaultWidgets = () => {
+        setWidgets(DEFAULT_WIDGETS);
+        setLayouts(DEFAULT_WIDGET_LAYOUTS);
+    };
+
+    // Widget selector component
+    const WidgetSelectorComponent = () => {
+        const widgetOptions = [
+            { 
+                id: WIDGET_TYPES.BURNDOWN_CHART, 
+                title: WIDGET_METADATA[WIDGET_TYPES.BURNDOWN_CHART].title, 
+                description: WIDGET_METADATA[WIDGET_TYPES.BURNDOWN_CHART].description, 
+                icon: <i className={`bi ${WIDGET_METADATA[WIDGET_TYPES.BURNDOWN_CHART].icon} fs-3`}></i> 
+            },
+            { 
+                id: WIDGET_TYPES.PROJECT_SUMMARY, 
+                title: WIDGET_METADATA[WIDGET_TYPES.PROJECT_SUMMARY].title, 
+                description: WIDGET_METADATA[WIDGET_TYPES.PROJECT_SUMMARY].description, 
+                icon: <i className={`bi ${WIDGET_METADATA[WIDGET_TYPES.PROJECT_SUMMARY].icon} fs-3`}></i> 
+            },
+            { 
+                id: WIDGET_TYPES.TEAM_VELOCITY, 
+                title: WIDGET_METADATA[WIDGET_TYPES.TEAM_VELOCITY].title, 
+                description: WIDGET_METADATA[WIDGET_TYPES.TEAM_VELOCITY].description, 
+                icon: <i className={`bi ${WIDGET_METADATA[WIDGET_TYPES.TEAM_VELOCITY].icon} fs-3`}></i> 
+            },
+            { 
+                id: WIDGET_TYPES.TASK_PRIORITY, 
+                title: WIDGET_METADATA[WIDGET_TYPES.TASK_PRIORITY].title, 
+                description: WIDGET_METADATA[WIDGET_TYPES.TASK_PRIORITY].description, 
+                icon: <i className={`bi ${WIDGET_METADATA[WIDGET_TYPES.TASK_PRIORITY].icon} fs-3`}></i> 
+            },
+            { 
+                id: WIDGET_TYPES.NOTIFICATIONS, 
+                title: WIDGET_METADATA[WIDGET_TYPES.NOTIFICATIONS].title, 
+                description: WIDGET_METADATA[WIDGET_TYPES.NOTIFICATIONS].description, 
+                icon: <i className={`bi ${WIDGET_METADATA[WIDGET_TYPES.NOTIFICATIONS].icon} fs-3`}></i> 
+            }
+        ];
+
+        return (
+            <Modal show={showWidgetSelector} onHide={() => setShowWidgetSelector(false)} centered>
+                <Modal.Header closeButton>
+                    <Modal.Title>Add Widget</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <Row className="g-3">
+                        {widgetOptions.map(widget => (
+                            <Col xs={12} md={6} key={widget.id}>
+                                <Card 
+                                    className="h-100 cursor-pointer"
+                                    onClick={() => handleAddWidget(widget.id)}
+                                >
+                                    <Card.Body>
+                                        <div className="d-flex mb-2">
+                                            <div className="me-3">
+                                                {widget.icon}
+                                            </div>
+                                            <div>
+                                                <Card.Title className="fs-5">{widget.title}</Card.Title>
+                                                <Card.Text className="text-muted small">
+                                                    {widget.description}
+                                                </Card.Text>
+                                            </div>
+                                        </div>
+                                    </Card.Body>
+                                </Card>
+                            </Col>
+                        ))}
+                    </Row>
+                </Modal.Body>
+            </Modal>
+        );
+    };
+
+    // Toggle widget fullscreen mode
+    const toggleWidgetFullscreen = (widgetId) => {
+        // Find the widget
+        const widget = widgets.find(w => w.id === widgetId);
+        if (!widget) return;
+        
+        // Update widget with fullscreen flag
+        setWidgets(widgets.map(w => 
+            w.id === widgetId 
+                ? { ...w, isFullScreen: !w.isFullScreen } 
+                : w
+        ));
+    };
+
+    if (loading) {
+        return (
+            <Container className="d-flex justify-content-center align-items-center" style={{ minHeight: '100vh' }}>
+                <Spinner animation="border" role="status" variant="primary">
+                    <span className="visually-hidden">Loading...</span>
+                </Spinner>
+            </Container>
+        );
+    }
 
     if (error) {
         return (
@@ -643,84 +1146,202 @@ const Dashboard = () => {
         );
     }
 
-    if (loading || !userDetails) {
-        return (
-            <Container className="mt-5 text-center">
-                <Spinner animation="border" role="status" variant="primary">
-                    <span className="visually-hidden">Loading...</span>
-                </Spinner>
-                <p className="mt-3">Loading your dashboard...</p>
-            </Container>
-        );
-    }
-
     return (
-        <div className={`dashboard-container ${theme === 'dark' ? 'bg-dark text-light' : ''}`}>
-            <DashboardHeader 
-                onAddWidget={() => setShowWidgetSelector(true)}
-                onSaveDashboard={saveDashboardConfig}
-                onResetDashboard={() => setShowTemplatesModal(true)}
-                onExportDashboard={handleExportDashboard}
-                onImportDashboard={handleImportDashboard}
-                isDashboardModified={isDashboardModified}
-            />
+        <div className={`dashboard-container ${theme}`} data-dashboard-theme={theme}>
+            {notification.show && (
+                <div className={`dashboard-notification ${notification.type}`}>
+                    <p>{notification.message}</p>
+                    <button onClick={() => setNotification({ show: false, message: '', type: '' })}>
+                        <FaCheck />
+                    </button>
+                </div>
+            )}
             
-            <Container fluid className="py-3">
-                {layouts && (
-                    <ResponsiveGridLayout
-                        className="layout"
-                        layouts={layouts}
-                        breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480 }}
-                        cols={{ lg: 12, md: 12, sm: 6, xs: 4 }}
-                        rowHeight={45}
-                        onLayoutChange={handleLayoutChange}
-                        isDraggable={!isMobile}
-                        isResizable={!isMobile}
-                        draggableHandle=".widget-title"
-                        margin={[16, 16]}
-                        containerPadding={[16, 16]}
-                        useCSSTransforms={true}
+            {/* Add Widget Notifications component */}
+            <WidgetNotifications />
+            
+            <div className="dashboard-header">
+                <div className="dashboard-title">
+                    {isEditingName ? (
+                        <InputGroup className="dashboard-title-edit">
+                            <Form.Control
+                                value={dashboardName}
+                                onChange={(e) => setDashboardName(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && toggleEditingName()}
+                            />
+                            <Button variant="outline-secondary" onClick={toggleEditingName}>
+                                <FaCheck />
+                            </Button>
+                        </InputGroup>
+                    ) : (
+                        <h1 onClick={toggleEditingName}>
+                            {dashboardName} <FaEdit className="edit-icon" />
+                        </h1>
+                    )}
+                </div>
+                
+                <div className="dashboard-actions">
+                    <Button
+                        variant="outline-primary"
+                        className="action-button save-button"
+                        onClick={saveCurrentLayout}
+                        disabled={savingLayout || !isDashboardModified}
                     >
-                        {Object.keys(widgets).map(widgetId => (
-                            <div key={widgetId} className={`widget ${theme === 'dark' ? 'widget-dark' : ''}`}>
-                                {renderWidget(widgetId)}
-                            </div>
-                        ))}
-                    </ResponsiveGridLayout>
-                )}
-            </Container>
-
-            {/* Theme Toggle Button */}
-            <div 
-                className="theme-toggle" 
-                onClick={toggleTheme}
-                title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
-            >
-                {theme === 'light' ? <BsFillMoonFill /> : <BsFillSunFill />}
+                        {savingLayout ? <Spinner animation="border" size="sm" /> : <FaSave />} Save
+                    </Button>
+                    
+                    <Button
+                        variant="outline-secondary"
+                        className="action-button export-button"
+                        onClick={exportDashboardConfig}
+                    >
+                        <FaFileExport /> Export
+                    </Button>
+                    
+                    <Button
+                        variant="outline-secondary"
+                        className="action-button import-button"
+                        onClick={() => fileInputRef.current.click()}
+                    >
+                        <FaFileImport /> Import
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            style={{ display: 'none' }}
+                            onChange={importDashboardConfig}
+                            accept=".json"
+                        />
+                    </Button>
+                    
+                    <Button
+                        variant="outline-secondary"
+                        className="action-button theme-button"
+                        onClick={toggleTheme}
+                    >
+                        {theme === 'dark' ? <FaSun /> : <FaMoon />}
+                    </Button>
+                </div>
             </div>
-
+            
+            {error && (
+                <Alert variant="danger" className="dashboard-alert">
+                    {error}
+                    <div className="mt-2">
+                        <Button variant="primary" onClick={() => window.location.reload()}>
+                            Reload Page
+                        </Button>
+                        <Button variant="secondary" className="ml-2" onClick={() => navigate('/login')}>
+                            Return to Login
+                        </Button>
+                    </div>
+                </Alert>
+            )}
+            
+            {loading ? (
+                <div className="loading-container">
+                    <Spinner animation="border" role="status" variant="primary" />
+                    <p>Loading your dashboard...</p>
+                </div>
+            ) : (
+                <>
+                    {/* Rest of the dashboard UI */}
+                    {/* ... existing dashboard rendering ... */}
+                    {/* Ensure there's a fallback view */}
+                    {!widgets || widgets.length === 0 ? (
+                        <div className="empty-dashboard">
+                            <Card className="text-center p-5">
+                                <Card.Body>
+                                    <Card.Title>Welcome to your Dashboard</Card.Title>
+                                    <Card.Text>
+                                        Your dashboard is empty. Click the button below to add your first widget.
+                                    </Card.Text>
+                                    <Button variant="primary" onClick={() => setShowWidgetSelector(true)}>
+                                        <FaPlus /> Add Widget
+                                    </Button>
+                                </Card.Body>
+                            </Card>
+                        </div>
+                    ) : (
+                        // Your existing widgets rendering code
+                        <>
+                            {/* Filter row */}
+                            <Row className="dashboard-filters-row mb-2">
+                                <Col xs={12} className="d-flex justify-content-between align-items-center">
+                                    <span className="filter-label">
+                                        <Button
+                                            variant="outline-secondary"
+                                            size="sm"
+                                            onClick={toggleFilters}
+                                            className="mr-2"
+                                        >
+                                            <BsFilter /> Filters {activeFiltersCount > 0 && `(${activeFiltersCount})`}
+                                        </Button>
+                                    </span>
+                                    <div className="dashboard-widgets-actions">
+                                        <Button
+                                            variant="primary"
+                                            size="sm"
+                                            onClick={() => setShowWidgetSelector(true)}
+                                            className="add-widget-btn"
+                                        >
+                                            <FaPlus /> Add Widget
+                                        </Button>
+                                    </div>
+                                </Col>
+                            </Row>
+                            
+                            {/* Dashboard content */}
+                            {isMobile ? (
+                                <div className="mobile-dashboard">
+                                    {widgets.map(widget => (
+                                        <Card key={widget.id} className="mb-3 dashboard-widget">
+                                            {renderWidget(widget)}
+                                        </Card>
+                                    ))}
+                                </div>
+                            ) : (
+                                <ResponsiveGridLayout
+                                    className="layout"
+                                    layouts={layouts}
+                                    breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
+                                    cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
+                                    rowHeight={60}
+                                    onLayoutChange={(layout) => handleLayoutChange(layout, layouts)}
+                                    isDraggable={true}
+                                    isResizable={true}
+                                    margin={[16, 16]}
+                                >
+                                    {widgets.map(widget => (
+                                        <div key={widget.id} className="dashboard-widget-container">
+                                            {renderWidget(widget)}
+                                        </div>
+                                    ))}
+                                </ResponsiveGridLayout>
+                            )}
+                        </>
+                    )}
+                </>
+            )}
+            
             {/* Modals */}
-            <WidgetSelector
-                show={showWidgetSelector}
-                onHide={() => setShowWidgetSelector(false)}
-                onAddWidget={handleAddWidget}
-            />
-
-            <WidgetConfigModal 
-                show={showConfigModal}
-                onHide={() => setShowConfigModal(false)}
-                widget={selectedWidget}
+            <WidgetSelectorComponent />
+            
+            <WidgetConfigModal
+                show={showWidgetConfig}
+                onHide={() => setShowWidgetConfig(false)}
+                widget={currentWidget}
                 onSave={handleUpdateWidgetConfig}
             />
-
-            <DashboardImportExport 
-                show={showImportExport}
-                onHide={() => setShowImportExport(false)}
-                currentConfig={{ widgets, layouts }}
-                onImport={handleImportConfig}
+            
+            <DashboardFilters
+                show={showFilters}
+                onHide={() => setShowFilters(false)}
+                filters={filters}
+                onApplyFilters={handleApplyFilters}
+                projects={projects}
             />
-
-            <DashboardTemplates 
+            
+            <DashboardTemplates
                 show={showTemplatesModal}
                 onHide={() => setShowTemplatesModal(false)}
                 onApplyTemplate={handleApplyTemplate}

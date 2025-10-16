@@ -1,253 +1,512 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Table, Badge, Spinner, Alert, Button } from 'react-bootstrap';
-import { FaTasks, FaExclamationCircle, FaFilter, FaCheck, FaHourglass } from 'react-icons/fa';
 import axios from 'axios';
-import { getToken, removeTokenAndRedirect } from '../../utils/authUtils';
-import { Link } from 'react-router-dom';
+import { Card, Table, Badge, Alert, Spinner, Button, Form, Row, Col, Dropdown } from 'react-bootstrap';
+import { FiSettings, FiTrash2, FiMaximize2, FiRefreshCw, FiFilter, FiChevronUp, FiChevronDown } from 'react-icons/fi';
+import { format, isAfter, isBefore, addDays } from 'date-fns';
 
-const TasksWidget = ({ config = {} }) => {
-  const [tasks, setTasks] = useState([]);
+const TasksWidget = ({
+  config,
+  onRemove,
+  onConfigUpdate,
+  isFullscreen,
+  onToggleFullscreen
+}) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeFilter, setActiveFilter] = useState('all');
-  
-  const limit = config.limit || 5; // Default to showing 5 tasks
+  const [tasks, setTasks] = useState([]);
+  const [filteredTasks, setFilteredTasks] = useState([]);
+  const [sortConfig, setSortConfig] = useState({
+    key: 'dueDate',
+    direction: 'asc'
+  });
+  const [filterVisible, setFilterVisible] = useState(false);
+  const [filters, setFilters] = useState({
+    status: '',
+    priority: '',
+    dueDate: ''
+  });
+
+  // Destructure config with defaults
+  const { userId, limit = 10, projectId } = config || {};
 
   useEffect(() => {
-    const fetchTasks = async () => {
-      try {
-        setLoading(true);
-        const token = getToken();
-        
-        if (!token) {
-          removeTokenAndRedirect();
-          return;
-        }
-        
-        // Fetch assigned tasks for the current user
-        const response = await axios.get('/api/tasks/my-tasks', {
-          headers: { Authorization: `Bearer ${token}` },
-          params: { limit, includeProject: true }
-        });
-        
-        setTasks(response.data);
-        setLoading(false);
-      } catch (err) {
-        console.error('Error fetching tasks:', err);
-        
-        if (err.response && err.response.status === 401) {
-          removeTokenAndRedirect();
-        } else {
-          setError(err.response?.data?.message || 'Failed to load tasks');
-          setLoading(false);
-        }
-      }
-    };
-    
     fetchTasks();
-  }, [limit]);
+  }, [userId, projectId, limit, fetchTasks]);
+
+  useEffect(() => {
+    applyFiltersAndSort();
+  }, [tasks, filters, sortConfig]);
+
+  const fetchTasks = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError('Authentication required');
+        setLoading(false);
+        return;
+      }
+
+      let url = '/api/tasks';
+      const params = new URLSearchParams();
+      
+      // Apply filters based on config
+      if (userId) {
+        params.append('assignedTo', userId);
+      }
+      
+      if (projectId) {
+        params.append('projectId', projectId);
+      }
+      
+      if (filters.status) {
+        params.append('status', filters.status);
+      }
+      
+      if (filters.priority) {
+        params.append('priority', filters.priority);
+      }
+      
+      params.append('limit', limit);
+
+      const response = await axios.get(url, {
+        params,
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      setTasks(response.data.tasks || []);
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+      setError(error.response?.data?.message || 'Failed to load tasks');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const requestSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
 
   const getStatusVariant = (status) => {
-    switch (status) {
-      case 'Not Started':
-        return 'secondary';
-      case 'In Progress':
-        return 'warning';
-      case 'In Review':
-        return 'info';
-      case 'Completed':
+    switch (status.toLowerCase()) {
+      case 'completed':
         return 'success';
-      case 'Blocked':
+      case 'in progress':
+        return 'primary';
+      case 'review':
+        return 'info';
+      case 'blocked':
         return 'danger';
+      case 'to do':
+        return 'secondary';
       default:
-        return 'light';
+        return 'secondary';
     }
   };
 
   const getPriorityVariant = (priority) => {
-    switch (priority) {
-      case 'Low':
-        return 'info';
-      case 'Medium':
-        return 'warning';
-      case 'High':
+    switch (priority.toLowerCase()) {
+      case 'high':
         return 'danger';
-      case 'Critical':
-        return 'dark';
+      case 'medium':
+        return 'warning';
+      case 'low':
+        return 'info';
       default:
-        return 'light';
+        return 'secondary';
     }
   };
 
-  const getFilteredTasks = () => {
-    if (activeFilter === 'all') {
-      return tasks;
-    } else if (activeFilter === 'active') {
-      return tasks.filter(task => 
-        task.status === 'Not Started' || 
-        task.status === 'In Progress' || 
-        task.status === 'In Review'
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+      return format(new Date(dateString), 'MMM d, yyyy');
+    } catch (e) {
+      return 'Invalid date';
+    }
+  };
+
+  const getDueDateStatus = (dueDate) => {
+    if (!dueDate) return '';
+    
+    try {
+      const today = new Date();
+      const due = new Date(dueDate);
+      
+      if (isBefore(due, today)) {
+        return 'text-danger'; // Overdue
+      } else if (isBefore(due, addDays(today, 2))) {
+        return 'text-warning'; // Due soon
+      }
+      return '';
+    } catch (e) {
+      return '';
+    }
+  };
+
+  const handleFilterChange = (field, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const applyFiltersAndSort = () => {
+    let filtered = [...tasks];
+    
+    // Apply status filter
+    if (filters.status) {
+      filtered = filtered.filter(task => 
+        task.status.toLowerCase() === filters.status.toLowerCase()
       );
-    } else if (activeFilter === 'completed') {
-      return tasks.filter(task => task.status === 'Completed');
-    } else if (activeFilter === 'high') {
-      return tasks.filter(task => 
-        task.priority === 'High' || 
-        task.priority === 'Critical'
+    }
+    
+    // Apply priority filter
+    if (filters.priority) {
+      filtered = filtered.filter(task => 
+        task.priority.toLowerCase() === filters.priority.toLowerCase()
       );
     }
-    return tasks;
-  };
-
-  const formatDueDate = (dueDate) => {
-    if (!dueDate) return 'No due date';
     
-    const date = new Date(dueDate);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    const dateOptions = { month: 'short', day: 'numeric' };
-    
-    if (date < today) {
-      return <span className="text-danger">{date.toLocaleDateString(undefined, dateOptions)} (Overdue)</span>;
-    } else if (date.getTime() === today.getTime()) {
-      return <span className="text-warning">Today</span>;
-    } else if (date.getTime() === tomorrow.getTime()) {
-      return <span className="text-primary">Tomorrow</span>;
+    // Apply due date filter
+    if (filters.dueDate) {
+      const today = new Date();
+      const tomorrow = addDays(today, 1);
+      const nextWeek = addDays(today, 7);
+      
+      switch (filters.dueDate) {
+        case 'overdue':
+          filtered = filtered.filter(task => 
+            task.dueDate && isBefore(new Date(task.dueDate), today)
+          );
+          break;
+        case 'today':
+          filtered = filtered.filter(task => {
+            if (!task.dueDate) return false;
+            const dueDate = new Date(task.dueDate);
+            return (
+              dueDate.getDate() === today.getDate() &&
+              dueDate.getMonth() === today.getMonth() &&
+              dueDate.getFullYear() === today.getFullYear()
+            );
+          });
+          break;
+        case 'tomorrow':
+          filtered = filtered.filter(task => {
+            if (!task.dueDate) return false;
+            const dueDate = new Date(task.dueDate);
+            return (
+              dueDate.getDate() === tomorrow.getDate() &&
+              dueDate.getMonth() === tomorrow.getMonth() &&
+              dueDate.getFullYear() === tomorrow.getFullYear()
+            );
+          });
+          break;
+        case 'week':
+          filtered = filtered.filter(task => 
+            task.dueDate && 
+            isAfter(new Date(task.dueDate), today) && 
+            isBefore(new Date(task.dueDate), nextWeek)
+          );
+          break;
+        default:
+          break;
+      }
     }
     
-    return date.toLocaleDateString(undefined, dateOptions);
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let compareA, compareB;
+      
+      // Handle different data types for sorting
+      switch (sortConfig.key) {
+        case 'title':
+          compareA = a.title || '';
+          compareB = b.title || '';
+          break;
+        case 'status':
+          compareA = a.status || '';
+          compareB = b.status || '';
+          break;
+        case 'priority':
+          compareA = a.priority || '';
+          compareB = b.priority || '';
+          break;
+        case 'dueDate':
+          compareA = a.dueDate ? new Date(a.dueDate).getTime() : 0;
+          compareB = b.dueDate ? new Date(b.dueDate).getTime() : 0;
+          break;
+        default:
+          compareA = a[sortConfig.key] || '';
+          compareB = b[sortConfig.key] || '';
+      }
+      
+      if (compareA < compareB) {
+        return sortConfig.direction === 'asc' ? -1 : 1;
+      }
+      if (compareA > compareB) {
+        return sortConfig.direction === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+    
+    setFilteredTasks(filtered);
   };
 
-  if (loading) {
-    return (
-      <div className="text-center p-4">
-        <Spinner animation="border" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </Spinner>
-      </div>
+  const getSortIcon = (key) => {
+    if (sortConfig.key !== key) {
+      return null;
+    }
+    return sortConfig.direction === 'asc' ? <FiChevronUp /> : <FiChevronDown />;
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      status: '',
+      priority: '',
+      dueDate: ''
+    });
+  };
+
+  const getTableHeight = () => {
+    if (isFullscreen) {
+      return 'calc(100vh - 300px)';
+    }
+    
+    // Calculate based on the number of tasks to display
+    const rowHeight = 50; // approximate height of each row in pixels
+    const headerHeight = 56; // approximate height of the table header
+    const minHeight = 200; // minimum height
+    
+    const calculatedHeight = Math.min(
+      filteredTasks.length * rowHeight + headerHeight,
+      400 // maximum non-fullscreen height
     );
-  }
+    
+    return Math.max(calculatedHeight, minHeight) + 'px';
+  };
 
-  if (error) {
-    return <Alert variant="danger">{error}</Alert>;
-  }
+  const getDefaultTaskFilter = () => {
+    if (userId) {
+      return "My Tasks";
+    } else if (projectId) {
+      return "Project Tasks";
+    }
+    return "All Tasks";
+  };
 
-  const filteredTasks = getFilteredTasks();
+  if (loading) return <Spinner animation="border" />;
+  if (error) return <Alert variant="danger">{error}</Alert>;
+  if (tasks.length === 0) return <Alert variant="info">No tasks found with the current filters</Alert>;
 
   return (
-    <div className="tasks-widget h-100 d-flex flex-column">
-      <h5 className="widget-title mb-3">
-        <FaTasks className="me-2" />
-        My Tasks
-      </h5>
+    <Card className="dashboard-widget tasks-widget h-100">
+      <Card.Header className="d-flex justify-content-between align-items-center">
+        <h5 className="mb-0">{getDefaultTaskFilter()}</h5>
+        <div className="widget-controls d-flex">
+          <Button 
+            variant="link" 
+            className="p-0 me-2" 
+            onClick={() => setFilterVisible(!filterVisible)}
+            title="Toggle filters"
+          >
+            <FiFilter />
+          </Button>
+          <Button 
+            variant="link" 
+            className="p-0 me-2" 
+            onClick={fetchTasks}
+            title="Refresh data"
+          >
+            <FiRefreshCw />
+          </Button>
+          <Button 
+            variant="link" 
+            className="p-0 me-2" 
+            onClick={() => onConfigUpdate(config)}
+            title="Configure widget"
+          >
+            <FiSettings />
+          </Button>
+          <Button 
+            variant="link" 
+            className="p-0 me-2" 
+            onClick={onToggleFullscreen}
+            title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+          >
+            <FiMaximize2 />
+          </Button>
+          <Button 
+            variant="link" 
+            className="p-0 text-danger" 
+            onClick={onRemove}
+            title="Remove widget"
+          >
+            <FiTrash2 />
+          </Button>
+        </div>
+      </Card.Header>
       
-      <Card className="flex-grow-1">
-        <Card.Body className="p-0 d-flex flex-column">
-          <div className="filter-buttons p-2 d-flex">
-            <Button 
-              variant={activeFilter === 'all' ? 'primary' : 'outline-primary'} 
-              size="sm"
-              className="me-1"
-              onClick={() => setActiveFilter('all')}
-            >
-              All
-            </Button>
-            <Button 
-              variant={activeFilter === 'active' ? 'primary' : 'outline-primary'} 
-              size="sm"
-              className="me-1"
-              onClick={() => setActiveFilter('active')}
-            >
-              <FaHourglass className="me-1" />
-              Active
-            </Button>
-            <Button 
-              variant={activeFilter === 'completed' ? 'primary' : 'outline-primary'} 
-              size="sm"
-              className="me-1"
-              onClick={() => setActiveFilter('completed')}
-            >
-              <FaCheck className="me-1" />
-              Completed
-            </Button>
-            <Button 
-              variant={activeFilter === 'high' ? 'primary' : 'outline-primary'} 
-              size="sm"
-              onClick={() => setActiveFilter('high')}
-            >
-              <FaExclamationCircle className="me-1" />
-              High Priority
-            </Button>
-          </div>
-          
-          {filteredTasks.length === 0 ? (
-            <div className="p-4 text-center">
-              <p className="text-muted mb-0">No tasks found</p>
-            </div>
-          ) : (
-            <div className="task-list-container flex-grow-1">
-              <Table responsive hover className="mb-0">
-                <thead>
-                  <tr>
-                    <th>Task</th>
-                    <th>Project</th>
-                    <th>Status</th>
-                    <th>Priority</th>
-                    <th>Due Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredTasks.map(task => (
-                    <tr key={task._id}>
-                      <td>
-                        <Link to={`/tasks/${task._id}`} className="text-decoration-none">
-                          {task.title}
-                        </Link>
-                      </td>
-                      <td>
-                        {task.project ? (
-                          <Link to={`/projects/${task.project._id}`} className="text-decoration-none">
-                            {task.project.name}
-                          </Link>
-                        ) : (
-                          <span className="text-muted">--</span>
-                        )}
-                      </td>
-                      <td>
-                        <Badge bg={getStatusVariant(task.status)}>
-                          {task.status}
-                        </Badge>
-                      </td>
-                      <td>
-                        <Badge bg={getPriorityVariant(task.priority)}>
-                          {task.priority}
-                        </Badge>
-                      </td>
-                      <td>
-                        {formatDueDate(task.dueDate)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-            </div>
-          )}
-          
-          {tasks.length > 0 && (
-            <div className="p-2 text-end border-top">
-              <Link to="/tasks" className="btn btn-sm btn-outline-primary">
-                View All Tasks
-              </Link>
-            </div>
-          )}
+      {filterVisible && (
+        <Card.Body className="py-2 border-bottom">
+          <Row className="align-items-end g-2">
+            <Col xs={12} md={3}>
+              <Form.Group controlId="statusFilter">
+                <Form.Label className="small">Status</Form.Label>
+                <Form.Select 
+                  size="sm" 
+                  value={filters.status}
+                  onChange={(e) => handleFilterChange('status', e.target.value)}
+                >
+                  <option value="">All Statuses</option>
+                  <option value="to do">To Do</option>
+                  <option value="in progress">In Progress</option>
+                  <option value="review">Review</option>
+                  <option value="blocked">Blocked</option>
+                  <option value="completed">Completed</option>
+                </Form.Select>
+              </Form.Group>
+            </Col>
+            <Col xs={12} md={3}>
+              <Form.Group controlId="priorityFilter">
+                <Form.Label className="small">Priority</Form.Label>
+                <Form.Select 
+                  size="sm" 
+                  value={filters.priority}
+                  onChange={(e) => handleFilterChange('priority', e.target.value)}
+                >
+                  <option value="">All Priorities</option>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </Form.Select>
+              </Form.Group>
+            </Col>
+            <Col xs={12} md={3}>
+              <Form.Group controlId="dueDateFilter">
+                <Form.Label className="small">Due Date</Form.Label>
+                <Form.Select 
+                  size="sm" 
+                  value={filters.dueDate}
+                  onChange={(e) => handleFilterChange('dueDate', e.target.value)}
+                >
+                  <option value="">All Dates</option>
+                  <option value="overdue">Overdue</option>
+                  <option value="today">Today</option>
+                  <option value="tomorrow">Tomorrow</option>
+                  <option value="week">This Week</option>
+                </Form.Select>
+              </Form.Group>
+            </Col>
+            <Col xs={12} md={3} className="text-end">
+              <Button 
+                variant="outline-secondary" 
+                size="sm" 
+                onClick={clearFilters}
+                className="mt-md-0 mt-2"
+              >
+                Clear Filters
+              </Button>
+            </Col>
+          </Row>
         </Card.Body>
-      </Card>
-    </div>
+      )}
+      
+      <Card.Body className="p-0">
+        <div className="table-responsive" style={{ height: getTableHeight(), overflowY: 'auto' }}>
+          <Table hover className="mb-0">
+            <thead className="sticky-top bg-light">
+              <tr>
+                <th 
+                  className="cursor-pointer" 
+                  onClick={() => requestSort('title')}
+                >
+                  <div className="d-flex align-items-center">
+                    Task {getSortIcon('title')}
+                  </div>
+                </th>
+                <th 
+                  className="cursor-pointer" 
+                  onClick={() => requestSort('status')}
+                >
+                  <div className="d-flex align-items-center">
+                    Status {getSortIcon('status')}
+                  </div>
+                </th>
+                <th 
+                  className="cursor-pointer" 
+                  onClick={() => requestSort('priority')}
+                >
+                  <div className="d-flex align-items-center">
+                    Priority {getSortIcon('priority')}
+                  </div>
+                </th>
+                <th 
+                  className="cursor-pointer" 
+                  onClick={() => requestSort('dueDate')}
+                >
+                  <div className="d-flex align-items-center">
+                    Due Date {getSortIcon('dueDate')}
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredTasks.map((task) => (
+                <tr key={task._id} onClick={() => window.location.href = `/tasks/${task._id}`} style={{ cursor: 'pointer' }}>
+                  <td className="align-middle">
+                    <div className="task-title">{task.title}</div>
+                    {task.projectName && <small className="text-muted d-block">{task.projectName}</small>}
+                  </td>
+                  <td className="align-middle">
+                    <Badge bg={getStatusVariant(task.status)}>
+                      {task.status}
+                    </Badge>
+                  </td>
+                  <td className="align-middle">
+                    <Badge bg={getPriorityVariant(task.priority)}>
+                      {task.priority}
+                    </Badge>
+                  </td>
+                  <td className={`align-middle ${getDueDateStatus(task.dueDate)}`}>
+                    {formatDate(task.dueDate)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </div>
+      </Card.Body>
+      
+      <Card.Footer className="text-muted d-flex justify-content-between align-items-center">
+        <small>Showing {filteredTasks.length} of {tasks.length} tasks</small>
+        <Dropdown align="end">
+          <Dropdown.Toggle variant="link" size="sm" className="p-0">
+            Limit: {limit}
+          </Dropdown.Toggle>
+          <Dropdown.Menu>
+            {[5, 10, 15, 20, 25, 50].map(l => (
+              <Dropdown.Item 
+                key={l} 
+                onClick={() => onConfigUpdate({ ...config, limit: l })}
+                active={limit === l}
+              >
+                {l} tasks
+              </Dropdown.Item>
+            ))}
+          </Dropdown.Menu>
+        </Dropdown>
+      </Card.Footer>
+    </Card>
   );
 };
 
-export default TasksWidget; 
+export default TasksWidget;

@@ -1,114 +1,218 @@
-import React, { useState, useEffect } from 'react';
-import { Toast, ToastContainer } from 'react-bootstrap';
-import { FaBell, FaExclamationTriangle, FaInfo, FaCheck } from 'react-icons/fa';
+import React, { useState } from 'react';
+import { Badge, Button, Card, Dropdown, ListGroup, Spinner } from 'react-bootstrap';
+import { FaBell, FaCheck, FaCheckDouble, FaTrash } from 'react-icons/fa';
+import { useNotifications } from '../../contexts/NotificationContext';
 import { useTheme } from '../../contexts/ThemeContext';
 
-// Notification types with their icons and styles
-const notificationTypes = {
-  info: { icon: <FaInfo />, bg: 'primary', textColor: 'white' },
-  warning: { icon: <FaExclamationTriangle />, bg: 'warning', textColor: 'dark' },
-  success: { icon: <FaCheck />, bg: 'success', textColor: 'white' },
-  error: { icon: <FaExclamationTriangle />, bg: 'danger', textColor: 'white' }
-};
+const WidgetNotifications = () => {
+  const { isDarkMode } = useTheme();
+  const { 
+    notifications, 
+    unreadCount, 
+    loading, 
+    error,
+    markAsRead, 
+    deleteNotification, 
+    markAllAsRead, 
+    fetchNotifications 
+  } = useNotifications();
+  const [isOpen, setIsOpen] = useState(false);
 
-const WidgetNotifications = ({ widgetId, widgetType }) => {
-  const [notifications, setNotifications] = useState([]);
-  const { theme } = useTheme();
-  
-  // Generate mock notifications based on widget type
-  useEffect(() => {
-    const generateNotifications = () => {
-      const mockNotifications = [];
-      
-      switch (widgetType) {
-        case 'projectSummary':
-          mockNotifications.push({
-            id: `${widgetId}-1`,
-            type: 'warning',
-            title: 'Project Deadline Approaching',
-            message: 'Project deadline is in 3 days.',
-            timestamp: new Date()
-          });
-          break;
-          
-        case 'myTasks':
-          mockNotifications.push({
-            id: `${widgetId}-1`,
-            type: 'info',
-            title: 'New Task Assigned',
-            message: 'You have been assigned a new task.',
-            timestamp: new Date()
-          });
-          break;
-          
-        case 'burndownChart':
-          mockNotifications.push({
-            id: `${widgetId}-1`,
-            type: 'warning',
-            title: 'Behind Schedule',
-            message: 'Project is falling behind the ideal burndown rate.',
-            timestamp: new Date()
-          });
-          break;
-          
-        case 'teamPerformance':
-          mockNotifications.push({
-            id: `${widgetId}-1`,
-            type: 'success',
-            title: 'Team Performance Improved',
-            message: 'Team completion rate increased by 15% this week.',
-            timestamp: new Date()
-          });
-          break;
-          
-        default:
-          break;
-      }
-      
-      setNotifications(mockNotifications);
-    };
-    
-    generateNotifications();
-    
-    // In a real application, you would set up a socket or polling mechanism here
-    // to receive updates for this specific widget
-  }, [widgetId, widgetType]);
-  
-  const handleClose = (id) => {
-    setNotifications(notifications.filter(notification => notification.id !== id));
+  const handleToggle = (isOpen) => {
+    setIsOpen(isOpen);
+    if (isOpen) {
+      fetchNotifications();
+    }
   };
-  
-  if (notifications.length === 0) {
-    return null;
-  }
-  
+
+  const handleMarkAsRead = (e, id) => {
+    e.stopPropagation();
+    markAsRead(id);
+  };
+
+  const handleDelete = (e, id) => {
+    e.stopPropagation();
+    deleteNotification(id);
+  };
+
+  const handleMarkAllAsRead = (e) => {
+    e.stopPropagation();
+    markAllAsRead();
+  };
+
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case 'warning':
+        return <span className="text-warning">⚠️</span>;
+      case 'error':
+        return <span className="text-danger">❌</span>;
+      case 'update':
+        return <span className="text-info">🔄</span>;
+      case 'success':
+        return <span className="text-success">✅</span>;
+      default:
+        return <span className="text-primary">📌</span>;
+    }
+  };
+
+  const formatTimestamp = (timestamp) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.round(diffMs / 60000);
+    const diffHours = Math.round(diffMins / 60);
+    const diffDays = Math.round(diffHours / 24);
+
+    if (diffMins < 60) {
+      return `${diffMins} min${diffMins !== 1 ? 's' : ''} ago`;
+    } else if (diffHours < 24) {
+      return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+    } else if (diffDays < 7) {
+      return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+    } else {
+      return date.toLocaleDateString();
+    }
+  };
+
   return (
-    <ToastContainer 
-      className="position-absolute p-3" 
-      style={{ top: 0, right: 0, zIndex: 10 }}
-    >
-      {notifications.map(notification => {
-        const { icon, bg, textColor } = notificationTypes[notification.type] || notificationTypes.info;
-        
-        return (
-          <Toast 
-            key={notification.id} 
-            onClose={() => handleClose(notification.id)}
-            delay={8000}
-            autohide
-            bg={bg}
-            className={`text-${textColor} mb-2 shadow-sm`}
+    <Dropdown onToggle={handleToggle} show={isOpen} align="end">
+      <Dropdown.Toggle 
+        variant={isDarkMode ? "dark" : "light"} 
+        id="widget-notifications-dropdown" 
+        className="position-relative"
+      >
+        <FaBell />
+        {unreadCount > 0 && (
+          <Badge 
+            bg="danger" 
+            className="position-absolute" 
+            style={{ 
+              top: '-8px', 
+              right: '-8px', 
+              fontSize: '0.6rem' 
+            }}
           >
-            <Toast.Header className={`bg-${bg} text-${textColor}`}>
-              <span className="me-1">{icon}</span>
-              <strong className="me-auto">{notification.title}</strong>
-              <small>{new Date(notification.timestamp).toLocaleTimeString()}</small>
-            </Toast.Header>
-            <Toast.Body>{notification.message}</Toast.Body>
-          </Toast>
-        );
-      })}
-    </ToastContainer>
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </Badge>
+        )}
+      </Dropdown.Toggle>
+
+      <Dropdown.Menu 
+        className={`notification-menu ${isDarkMode ? 'bg-dark text-light' : 'bg-light text-dark'}`}
+        style={{ 
+          width: '350px', 
+          maxHeight: '500px',
+          overflow: 'hidden',
+          padding: 0
+        }}
+      >
+        <Card className={`border-0 ${isDarkMode ? 'bg-dark text-white' : 'bg-light text-dark'}`}>
+          <Card.Header className="d-flex justify-content-between align-items-center py-2">
+            <h6 className="mb-0">Widget Notifications</h6>
+            <div>
+              <Button 
+                variant={isDarkMode ? "outline-light" : "outline-dark"} 
+                size="sm" 
+                onClick={handleMarkAllAsRead}
+                disabled={loading || notifications.length === 0 || notifications.every(n => n.read)}
+                className="me-1"
+              >
+                <FaCheckDouble size={14} /> Mark all read
+              </Button>
+              <Button 
+                variant={isDarkMode ? "outline-light" : "outline-dark"} 
+                size="sm" 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  fetchNotifications();
+                }}
+                disabled={loading}
+              >
+                🔄
+              </Button>
+            </div>
+          </Card.Header>
+          
+          <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+            {loading ? (
+              <div className="text-center p-4">
+                <Spinner animation="border" variant="primary" />
+                <p className="mt-2">Loading notifications...</p>
+              </div>
+            ) : error ? (
+              <div className="text-center p-4 text-danger">
+                <p>{error}</p>
+                <Button 
+                  variant="outline-primary" 
+                  size="sm" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    fetchNotifications();
+                  }}
+                >
+                  Try again
+                </Button>
+              </div>
+            ) : notifications.length === 0 ? (
+              <div className="text-center p-4">
+                <p className="mb-0">No notifications</p>
+              </div>
+            ) : (
+              <ListGroup variant="flush">
+                {notifications.map(notification => (
+                  <ListGroup.Item 
+                    key={notification.id}
+                    className={`border-bottom ${isDarkMode ? 'bg-dark text-white' : ''} ${!notification.read ? 'unread-notification' : ''}`}
+                    style={{
+                      backgroundColor: !notification.read 
+                        ? (isDarkMode ? '#2c3b41' : '#f8f9fa') 
+                        : (isDarkMode ? '#343a40' : 'white'),
+                      borderLeft: !notification.read ? '3px solid #007bff' : 'none',
+                      padding: '10px'
+                    }}
+                  >
+                    <div className="d-flex align-items-start">
+                      <div className="me-2 mt-1">
+                        {getNotificationIcon(notification.type)}
+                      </div>
+                      <div className="flex-grow-1">
+                        <div className="d-flex justify-content-between align-items-start">
+                          <h6 className="mb-1">{notification.title}</h6>
+                          <small className="text-muted ms-2">
+                            {formatTimestamp(notification.createdAt)}
+                          </small>
+                        </div>
+                        <p className="mb-1">{notification.message}</p>
+                        <div className="d-flex justify-content-end mt-1">
+                          {!notification.read && (
+                            <Button 
+                              variant="link" 
+                              size="sm" 
+                              className="p-0 me-3 text-primary" 
+                              onClick={(e) => handleMarkAsRead(e, notification.id)}
+                            >
+                              <FaCheck size={14} /> Mark read
+                            </Button>
+                          )}
+                          <Button 
+                            variant="link" 
+                            size="sm" 
+                            className="p-0 text-danger" 
+                            onClick={(e) => handleDelete(e, notification.id)}
+                          >
+                            <FaTrash size={14} /> Delete
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </ListGroup.Item>
+                ))}
+              </ListGroup>
+            )}
+          </div>
+        </Card>
+      </Dropdown.Menu>
+    </Dropdown>
   );
 };
 

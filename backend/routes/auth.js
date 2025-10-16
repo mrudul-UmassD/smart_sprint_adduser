@@ -10,7 +10,10 @@ router.post('/login', async (req, res) => {
     try {
         const { username, password } = req.body;
         
+        console.log('Login attempt for username:', username);
+        
         if (!username || !password) {
+            console.log('Login failed: Missing username or password');
             return res.status(400).json({ 
                 success: false,
                 error: 'Username and password are required' 
@@ -20,15 +23,21 @@ router.post('/login', async (req, res) => {
         const user = await User.findOne({ username });
         
         if (!user) {
+            console.log('Login failed: User not found -', username);
             return res.status(401).json({ 
                 success: false,
                 error: 'Invalid username or password' 
             });
         }
 
+        console.log('User found:', user.username, 'Role:', user.role);
+        
         // Check password
         const isMatch = await user.comparePassword(password);
+        console.log('Password comparison result:', isMatch);
+        
         if (!isMatch) {
+            console.log('Login failed: Invalid password for user', username);
             return res.status(401).json({ 
                 success: false,
                 error: 'Invalid username or password' 
@@ -38,6 +47,7 @@ router.post('/login', async (req, res) => {
         // Update user's last login
         user.lastLogin = new Date();
         await user.save();
+        console.log('Updated last login for user:', username);
 
         // Generate token with both id and _id for compatibility
         const token = jwt.sign(
@@ -49,6 +59,7 @@ router.post('/login', async (req, res) => {
             process.env.JWT_SECRET,
             { expiresIn: '24h' }
         );
+        console.log('Generated JWT token for user:', username);
 
         res.json({ 
             success: true,
@@ -66,6 +77,7 @@ router.post('/login', async (req, res) => {
             }, 
             token 
         });
+        console.log('Login successful for user:', username);
     } catch (error) {
         console.error('Login error:', error);
         res.status(500).json({ 
@@ -163,6 +175,79 @@ router.post('/first-password', auth, async (req, res) => {
     }
 });
 
+// Special admin login endpoint
+router.post('/admin-login', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        
+        console.log('Admin login attempt for username:', username);
+        
+        if (username !== 'admin') {
+            console.log('Admin login failed: Not an admin username');
+            return res.status(401).json({ 
+                success: false,
+                error: 'Invalid admin credentials' 
+            });
+        }
+
+        // Find the admin user
+        const adminUser = await User.findOne({ username: 'admin' });
+        
+        if (!adminUser) {
+            console.log('Admin login failed: Admin user not found in database');
+            return res.status(401).json({ 
+                success: false,
+                error: 'Invalid admin credentials' 
+            });
+        }
+
+        // Check if password is either 'admin' or 'adminadmin'
+        const isMatch = (password === 'admin' || password === 'adminadmin');
+        
+        if (!isMatch) {
+            console.log('Admin login failed: Invalid admin password');
+            return res.status(401).json({ 
+                success: false,
+                error: 'Invalid admin credentials' 
+            });
+        }
+
+        // Update admin's last login
+        adminUser.lastLogin = new Date();
+        await adminUser.save();
+
+        // Generate token
+        const token = jwt.sign(
+            { 
+                id: adminUser._id.toString(), 
+                _id: adminUser._id.toString(), 
+                role: 'Admin' 
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+        console.log('Generated JWT token for admin user');
+
+        res.json({ 
+            success: true,
+            user: {
+                _id: adminUser._id,
+                username: adminUser.username,
+                role: 'Admin',
+                isFirstLogin: false
+            }, 
+            token 
+        });
+        console.log('Admin login successful');
+    } catch (error) {
+        console.error('Admin login error:', error);
+        res.status(500).json({ 
+            success: false,
+            error: error.message 
+        });
+    }
+});
+
 // Reset database - keep only admin user
 router.post('/reset-db', async (req, res) => {
     try {
@@ -201,4 +286,4 @@ router.post('/reset-db', async (req, res) => {
     }
 });
 
-module.exports = router; 
+module.exports = router;

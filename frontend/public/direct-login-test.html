@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Direct Login Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .result {
+            border: 1px solid #eee;
+            padding: 10px;
+            margin-top: 10px;
+            min-height: 50px;
+            max-height: 300px;
+            overflow: auto;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+        h2 {
+            margin-top: 0;
+        }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>Direct Login Test</h1>
+    
+    <div class="test-section">
+        <h2>API Health Check</h2>
+        <button onclick="testHealthEndpoint()">Check API Health</button>
+        <div id="health-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Auth Test Endpoint</h2>
+        <button onclick="testAuthEndpoint()">Test Auth System</button>
+        <div id="auth-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test Admin Login</h2>
+        <button onclick="testLogin('admin', 'admin')">Test Admin Login</button>
+        <button onclick="testLogin('admin', 'adminadmin')">Test Admin Login (Long Password)</button>
+        <div id="admin-login-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test Manager Login</h2>
+        <button onclick="testLogin('manager', 'manager123')">Test Manager Login</button>
+        <div id="manager-login-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test Login Endpoint</h2>
+        <button onclick="testLoginEndpoint('admin', 'admin')">Test Admin Login</button>
+        <button onclick="testLoginEndpoint('admin', 'adminadmin')">Test Admin Login (Long Password)</button>
+        <button onclick="testLoginEndpoint('manager', 'manager123')">Test Manager Login</button>
+        <div id="login-endpoint-result" class="result"></div>
+    </div>
+    
+    <script>
+        const API_URL = 'http://localhost:5000';
+        
+        async function testHealthEndpoint() {
+            const resultDiv = document.getElementById('health-result');
+            resultDiv.innerHTML = 'Testing API health...';
+            
+            try {
+                const response = await fetch(`${API_URL}/health`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<div class="success">API is healthy: ${JSON.stringify(data)}</div>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">API health check failed: ${JSON.stringify(data)}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function testAuthEndpoint() {
+            const resultDiv = document.getElementById('auth-result');
+            resultDiv.innerHTML = 'Testing auth system...';
+            
+            try {
+                const response = await fetch(`${API_URL}/api/test/auth`);
+                const data = await response.json();
+                
+                resultDiv.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function testLogin(username, password) {
+            const resultDiv = document.getElementById(`${username === 'admin' ? 'admin' : 'manager'}-login-result`);
+            resultDiv.innerHTML = `Testing ${username} login...`;
+            
+            try {
+                const response = await fetch(`${API_URL}/api/test/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<div class="success">Login successful!</div><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">Login failed: ${data.error}</div><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function testLoginEndpoint(username, password) {
+            const resultDiv = document.getElementById('login-endpoint-result');
+            resultDiv.innerHTML = `Testing /api/auth/login with ${username}...`;
+            
+            try {
+                const response = await fetch(`${API_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<div class="success">Login successful!</div><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                    
+                    // Store token to test with
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                } else {
+                    resultDiv.innerHTML = `<div class="error">Login failed: ${data.error}</div><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html> 

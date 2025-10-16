@@ -1,268 +1,169 @@
-import React, { useState, useEffect } from 'react';
-import { Modal, Button, Card, Row, Col, Form } from 'react-bootstrap';
-import axios from '../../utils/axiosConfig';
+import React, { useState } from 'react';
+import { Modal, Button, ListGroup, Form, InputGroup } from 'react-bootstrap';
+import { getAvailableWidgets, WIDGET_METADATA, WIDGET_TYPES } from './WidgetRegistry';
 
-// Widget type definitions with icons and descriptions
-const WIDGET_TYPES = [
-  {
-    id: 'projectSummary',
-    title: 'Project Summary',
-    description: 'Overview of your current projects with completion rates and task distribution.',
-    icon: '📊'
-  },
-  {
-    id: 'tasks',
-    title: 'My Tasks',
-    description: 'Display your assigned tasks with priorities and due dates.',
-    icon: '✓'
-  },
-  {
-    id: 'burndown',
-    title: 'Burndown Chart',
-    description: 'Track project progress over time with a burndown chart.',
-    icon: '📉'
-  },
-  {
-    id: 'teamPerformance',
-    title: 'Team Performance',
-    description: 'Monitor team productivity and task completion metrics.',
-    icon: '👥'
-  }
-];
-
-const WidgetSelector = ({ show, onHide, onAddWidget }) => {
-  const [projects, setProjects] = useState([]);
-  const [teams, setTeams] = useState([]);
-  const [selectedWidget, setSelectedWidget] = useState(null);
-  const [widgetConfig, setWidgetConfig] = useState({});
-  const [loading, setLoading] = useState(false);
-
-  // Fetch available projects and teams when modal opens
-  useEffect(() => {
-    if (show) {
-      fetchData();
-    }
-  }, [show]);
-
-  const fetchData = async () => {
-    setLoading(true);
+const WidgetSelector = ({ show, onClose, onSelectWidget, userRole }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [customTitle, setCustomTitle] = useState('');
+  const [selectedWidgetType, setSelectedWidgetType] = useState(null);
+  
+  // Get available widgets for this role and filter by search term
+  const getFilteredWidgets = () => {
+    // Try to get widgets from getAvailableWidgets
+    let widgets = [];
     try {
-      // Fetch projects for project selection
-      const projectsResponse = await axios.get('/api/projects');
-      setProjects(projectsResponse.data);
-
-      // Get available teams from user data or from a dedicated endpoint
-      const teamsResponse = await axios.get('/api/users/teams');
-      setTeams(teamsResponse.data);
+      widgets = getAvailableWidgets(userRole);
     } catch (error) {
-      console.error('Error fetching widget configuration data:', error);
-    } finally {
-      setLoading(false);
+      console.error('Error getting available widgets:', error);
+      
+      // Fallback to WIDGET_METADATA if available
+      if (WIDGET_METADATA) {
+        widgets = Object.keys(WIDGET_METADATA)
+          .filter(key => {
+            const metadata = WIDGET_METADATA[key];
+            return metadata.roles && metadata.roles.includes(userRole);
+          })
+          .map(key => ({
+            type: key,
+            title: WIDGET_METADATA[key].title,
+            description: WIDGET_METADATA[key].description,
+            icon: WIDGET_METADATA[key].icon
+          }));
+      }
+    }
+    
+    // Filter by search term if provided
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      return widgets.filter(widget => 
+        widget.title.toLowerCase().includes(term) || 
+        (widget.description && widget.description.toLowerCase().includes(term))
+      );
+    }
+    
+    return widgets;
+  };
+  
+  const handleSelectWidget = (widgetType) => {
+    setSelectedWidgetType(widgetType);
+    
+    // Find widget info to set default title
+    const widgetInfo = getFilteredWidgets().find(w => w.type === widgetType);
+    if (widgetInfo) {
+      setCustomTitle(widgetInfo.title);
     }
   };
-
-  const handleWidgetSelect = (widgetType) => {
-    setSelectedWidget(widgetType);
-    // Set default configuration based on widget type
-    switch (widgetType) {
-      case 'projectSummary':
-        setWidgetConfig({ projectId: '' });
-        break;
-      case 'tasks':
-        setWidgetConfig({ limit: 5 });
-        break;
-      case 'burndown':
-        setWidgetConfig({ projectId: '' });
-        break;
-      case 'teamPerformance':
-        setWidgetConfig({ team: '' });
-        break;
-      default:
-        setWidgetConfig({});
-    }
-  };
-
-  const handleConfigChange = (e) => {
-    const { name, value } = e.target;
-    setWidgetConfig({ ...widgetConfig, [name]: value });
-  };
-
+  
   const handleAddWidget = () => {
-    onAddWidget(selectedWidget, widgetConfig);
-    resetForm();
-    onHide();
-  };
-
-  const resetForm = () => {
-    setSelectedWidget(null);
-    setWidgetConfig({});
-  };
-
-  const handleClose = () => {
-    resetForm();
-    onHide();
-  };
-
-  // Widget definitions with their UI representation
-  const widgetDefinitions = [
-    {
-      type: 'projectSummary',
-      title: 'Project Summary',
-      description: 'Shows key metrics for a specific project',
-      icon: 'bi-bar-chart-fill'
-    },
-    {
-      type: 'tasks',
-      title: 'My Tasks',
-      description: 'Displays your assigned tasks',
-      icon: 'bi-list-check'
-    },
-    {
-      type: 'burndown',
-      title: 'Burndown Chart',
-      description: 'Shows project progress over time',
-      icon: 'bi-graph-down'
-    },
-    {
-      type: 'teamPerformance',
-      title: 'Team Performance',
-      description: 'Displays performance metrics for a team',
-      icon: 'bi-people-fill'
-    }
-  ];
-
-  // Configuration form based on selected widget type
-  const renderConfigurationForm = () => {
-    if (!selectedWidget) return null;
-
-    switch (selectedWidget) {
-      case 'projectSummary':
-      case 'burndown':
-        return (
-          <Form.Group className="mb-3">
-            <Form.Label>Select Project</Form.Label>
-            <Form.Select 
-              name="projectId" 
-              value={widgetConfig.projectId || ''} 
-              onChange={handleConfigChange}
-              required
-            >
-              <option value="">Select a project</option>
-              {projects.map(project => (
-                <option key={project._id} value={project._id}>
-                  {project.name}
-                </option>
-              ))}
-            </Form.Select>
-          </Form.Group>
-        );
-        
-      case 'tasks':
-        return (
-          <Form.Group className="mb-3">
-            <Form.Label>Number of Tasks to Display</Form.Label>
-            <Form.Control 
-              type="number" 
-              name="limit" 
-              value={widgetConfig.limit || 5} 
-              onChange={handleConfigChange}
-              min="1" 
-              max="20"
-            />
-          </Form.Group>
-        );
-        
-      case 'teamPerformance':
-        return (
-          <Form.Group className="mb-3">
-            <Form.Label>Select Team</Form.Label>
-            <Form.Select 
-              name="team" 
-              value={widgetConfig.team || ''} 
-              onChange={handleConfigChange}
-              required
-            >
-              <option value="">Select a team</option>
-              {teams.map((team, index) => (
-                <option key={index} value={team}>
-                  {team}
-                </option>
-              ))}
-            </Form.Select>
-          </Form.Group>
-        );
-        
-      default:
-        return null;
+    if (selectedWidgetType) {
+      onSelectWidget(selectedWidgetType, customTitle);
+      resetState();
     }
   };
-
+  
+  const resetState = () => {
+    setSearchTerm('');
+    setCustomTitle('');
+    setSelectedWidgetType(null);
+    onClose();
+  };
+  
+  // Render header with search box
+  const renderHeader = () => (
+    <div className="mb-3">
+      <Form.Group>
+        <InputGroup>
+          <InputGroup.Text>
+            <i className="bi bi-search"></i>
+          </InputGroup.Text>
+          <Form.Control
+            type="text"
+            placeholder="Search widgets..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </InputGroup>
+      </Form.Group>
+    </div>
+  );
+  
+  // Render widget list
+  const renderWidgetList = () => {
+    const widgets = getFilteredWidgets();
+    
+    if (widgets.length === 0) {
+      return (
+        <div className="text-center p-3">
+          <p className="text-muted">No widgets found matching your search</p>
+        </div>
+      );
+    }
+    
+    return (
+      <ListGroup>
+        {widgets.map(widget => (
+          <ListGroup.Item
+            key={widget.type}
+            action
+            active={selectedWidgetType === widget.type}
+            onClick={() => handleSelectWidget(widget.type)}
+            className="d-flex align-items-center"
+          >
+            <div className="widget-icon me-3">
+              {typeof widget.icon === 'string' ? (
+                <i className={`bi ${widget.icon}`}></i>
+              ) : (
+                widget.icon
+              )}
+            </div>
+            <div>
+              <h6 className="mb-0">{widget.title}</h6>
+              <small className="text-muted">{widget.description}</small>
+            </div>
+          </ListGroup.Item>
+        ))}
+      </ListGroup>
+    );
+  };
+  
+  // Render custom title input for selected widget
+  const renderCustomTitleInput = () => {
+    if (!selectedWidgetType) return null;
+    
+    return (
+      <Form.Group className="mt-3">
+        <Form.Label>Widget Title</Form.Label>
+        <Form.Control
+          type="text"
+          value={customTitle}
+          onChange={(e) => setCustomTitle(e.target.value)}
+          placeholder="Enter a custom title for the widget"
+        />
+      </Form.Group>
+    );
+  };
+  
   return (
-    <Modal 
-      show={show} 
-      onHide={handleClose} 
-      size="lg" 
-      centered
-      backdrop="static"
-    >
+    <Modal show={show} onHide={resetState} centered>
       <Modal.Header closeButton>
-        <Modal.Title>
-          {selectedWidget 
-            ? `Configure ${widgetDefinitions.find(w => w.type === selectedWidget)?.title || 'Widget'}`
-            : 'Select a Widget to Add'
-          }
-        </Modal.Title>
+        <Modal.Title>Add Widget</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        {!selectedWidget ? (
-          <Row xs={1} md={2} className="g-4">
-            {widgetDefinitions.map((widget) => (
-              <Col key={widget.type}>
-                <Card 
-                  className={`widget-card h-100 cursor-pointer`}
-                  onClick={() => handleWidgetSelect(widget.type)}
-                >
-                  <Card.Body className="d-flex flex-column">
-                    <div className="text-center mb-3">
-                      <i className={`${widget.icon} display-5 text-primary`}></i>
-                    </div>
-                    <Card.Title className="text-center">{widget.title}</Card.Title>
-                    <Card.Text className="text-center text-muted">
-                      {widget.description}
-                    </Card.Text>
-                  </Card.Body>
-                </Card>
-              </Col>
-            ))}
-          </Row>
-        ) : (
-          <Form>
-            {renderConfigurationForm()}
-          </Form>
-        )}
+        {renderHeader()}
+        {renderWidgetList()}
+        {renderCustomTitleInput()}
       </Modal.Body>
       <Modal.Footer>
-        {selectedWidget ? (
-          <>
-            <Button variant="secondary" onClick={() => setSelectedWidget(null)}>
-              Back to Widgets
-            </Button>
-            <Button 
-              variant="primary" 
-              onClick={handleAddWidget}
-              disabled={
-                (selectedWidget === 'projectSummary' || selectedWidget === 'burndown') && !widgetConfig.projectId ||
-                selectedWidget === 'teamPerformance' && !widgetConfig.team
-              }
-            >
-              Add to Dashboard
-            </Button>
-          </>
-        ) : (
-          <Button variant="secondary" onClick={handleClose}>
-            Cancel
-          </Button>
-        )}
+        <Button variant="secondary" onClick={resetState}>
+          Cancel
+        </Button>
+        <Button
+          variant="primary"
+          onClick={handleAddWidget}
+          disabled={!selectedWidgetType}
+        >
+          Add Widget
+        </Button>
       </Modal.Footer>
     </Modal>
   );

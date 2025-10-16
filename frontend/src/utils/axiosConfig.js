@@ -1,38 +1,40 @@
 import axios from 'axios';
 import API_CONFIG from '../config';
 
-// Set base URL
-axios.defaults.baseURL = API_CONFIG.BASE_URL;
+// Create an axios instance with default config
+const instance = axios.create({
+  baseURL: API_CONFIG.API_URL,
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
 
-// Add request interceptor to set auth token for all requests
-axios.interceptors.request.use(
+// Add request interceptor to include auth token
+instance.interceptors.request.use(
   config => {
     const token = localStorage.getItem('token');
     if (token) {
-      // Set token in both formats to ensure compatibility
       config.headers['Authorization'] = `Bearer ${token}`;
-      config.headers['x-auth-token'] = token;
     }
     return config;
   },
   error => {
-    console.error('Request interceptor error:', error);
+    console.error('API request error:', error);
     return Promise.reject(error);
   }
 );
 
 // Add response interceptor to handle authentication errors
-axios.interceptors.response.use(
+instance.interceptors.response.use(
   response => response,
   error => {
     console.error('API response error:', error?.response?.status, error?.response?.data);
     
-    // Handle 401 Unauthorized errors
+    // Don't auto-redirect on 401 errors to prevent infinite logout loops
+    // Just log the error and let the component handle it
     if (error.response && error.response.status === 401) {
-      console.log('Authentication error detected. Logging out.');
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      console.log('Authentication error detected, component should handle this');
     }
     
     // Handle CORS errors which won't have a proper response object
@@ -44,4 +46,4 @@ axios.interceptors.response.use(
   }
 );
 
-export default axios; 
+export default instance; 

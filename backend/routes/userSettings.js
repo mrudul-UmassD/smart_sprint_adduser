@@ -640,4 +640,110 @@ router.post('/notifications', auth, async (req, res) => {
   }
 });
 
+// Get dashboard layouts
+router.get('/dashboard-layouts', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // If user doesn't have any layouts yet, return empty array
+    if (!user.dashboardLayouts || user.dashboardLayouts.length === 0) {
+      return res.status(200).json({ layouts: [] });
+    }
+
+    res.status(200).json({ layouts: user.dashboardLayouts });
+  } catch (error) {
+    console.error('Error getting dashboard layouts:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Save dashboard layout
+router.post('/dashboard-layouts', auth, async (req, res) => {
+  try {
+    const { name, layout, widgets, isDefault } = req.body;
+    if (!name || !layout || !widgets) {
+      return res.status(400).json({ message: 'Name, layout, and widgets are required' });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Initialize dashboardLayouts if it doesn't exist
+    if (!user.dashboardLayouts) {
+      user.dashboardLayouts = [];
+    }
+
+    // Check if a layout with this name already exists
+    const existingLayoutIndex = user.dashboardLayouts.findIndex(
+      layout => layout.name === name
+    );
+
+    const layoutData = {
+      name,
+      layout,
+      widgets,
+      isDefault: isDefault || false,
+      updatedAt: new Date()
+    };
+
+    // If isDefault is true, set all other layouts to not default
+    if (isDefault) {
+      user.dashboardLayouts.forEach(layout => {
+        layout.isDefault = false;
+      });
+    }
+
+    if (existingLayoutIndex !== -1) {
+      // Update existing layout
+      user.dashboardLayouts[existingLayoutIndex] = layoutData;
+    } else {
+      // Add new layout
+      user.dashboardLayouts.push(layoutData);
+    }
+
+    await user.save();
+    res.status(200).json({ message: 'Dashboard layout saved successfully', layout: layoutData });
+  } catch (error) {
+    console.error('Error saving dashboard layout:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Delete dashboard layout
+router.delete('/dashboard-layouts/:layoutName', auth, async (req, res) => {
+  try {
+    const { layoutName } = req.params;
+    
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Find and remove the layout
+    if (!user.dashboardLayouts) {
+      return res.status(404).json({ message: 'No layouts found' });
+    }
+
+    const initialLength = user.dashboardLayouts.length;
+    user.dashboardLayouts = user.dashboardLayouts.filter(
+      layout => layout.name !== layoutName
+    );
+
+    if (user.dashboardLayouts.length === initialLength) {
+      return res.status(404).json({ message: 'Layout not found' });
+    }
+
+    await user.save();
+    res.status(200).json({ message: 'Dashboard layout deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting dashboard layout:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router; 

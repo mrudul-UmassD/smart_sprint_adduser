@@ -142,30 +142,28 @@ const userSchema = new mongoose.Schema({
         }
     },
     // Dashboard layouts
-    dashboardLayouts: [
-        {
-            name: {
-                type: String,
-                required: true
-            },
-            layout: {
-                type: mongoose.Schema.Types.Mixed,
-                required: true
-            },
-            widgets: {
-                type: [mongoose.Schema.Types.Mixed],
-                required: true
-            },
-            isDefault: {
-                type: Boolean,
-                default: false
-            },
-            updatedAt: {
-                type: Date,
-                default: Date.now
-            }
+    dashboardLayouts: [{
+        name: {
+            type: String,
+            default: 'My Dashboard'
+        },
+        layouts: {
+            type: mongoose.Schema.Types.Mixed,
+            default: {}
+        },
+        widgets: {
+            type: [Object],
+            default: []
+        },
+        createdAt: {
+            type: Date,
+            default: Date.now
+        },
+        updatedAt: {
+            type: Date,
+            default: Date.now
         }
-    ]
+    }]
 }, {
     timestamps: true
 });

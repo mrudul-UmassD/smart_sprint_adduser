@@ -16,12 +16,14 @@ const apiLimiter = rateLimit({
 // Login rate limiting
 const loginLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 5, // limit each IP to 5 login requests per hour
+  max: 20, // increased from 5 to 20 login attempts per hour
   message: {
     success: false,
     error: 'Too many login attempts',
     details: 'Please try again later'
-  }
+  },
+  // Adding skipSuccessfulRequests to not count successful logins against the limit
+  skipSuccessfulRequests: true
 });
 
 // Registration rate limiting
@@ -49,10 +51,19 @@ const passwordResetLimiter = rateLimit({
 // CORS configuration
 const corsOptions = {
   origin: function(origin, callback) {
+    // Development mode - allow all origins
+    if (process.env.NODE_ENV !== 'production') {
+      callback(null, true);
+      return;
+    }
+    
+    // Production mode - check allowed origins
     const allowedOrigins = [
       'http://localhost:3000',
+      'http://localhost:5000',
       process.env.FRONTEND_URL || 'https://smart-sprint.onrender.com'
     ];
+    
     // Allow requests with no origin (like mobile apps, curl, etc)
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
@@ -61,8 +72,8 @@ const corsOptions = {
       callback(new Error('Not allowed by CORS'));
     }
   },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token', 'Cache-Control'],
   credentials: true,
   maxAge: 86400 // 24 hours
 };

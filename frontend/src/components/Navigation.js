@@ -102,9 +102,9 @@ const Navigation = () => {
           <ListItemText primary="Dashboard" />
         </ListItem>
         
-        <ListItem component={Link} to="/custom-dashboard">
+        {/* <ListItem component={Link} to="/custom-dashboard">
           <ListItemText primary="Custom Dashboard" />
-        </ListItem>
+        </ListItem> */}
         
         <ListItem component={Link} to="/projects">
           <ListItemText primary="Projects" />

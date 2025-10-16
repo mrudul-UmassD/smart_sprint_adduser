@@ -2,6 +2,8 @@ import React from 'react';
 import { Navbar, Button, Form, Container } from 'react-bootstrap';
 import { FaMoon, FaSun, FaPlus, FaSave, FaUndo, FaDownload, FaUpload } from 'react-icons/fa';
 import { useTheme } from '../contexts/ThemeContext';
+import { ThemeToggle } from './ThemeToggle';
+import WidgetNotifications from './widgets/WidgetNotifications';
 
 const DashboardHeader = ({ 
   onAddWidget, 
@@ -84,6 +86,11 @@ const DashboardHeader = ({
               {theme === 'dark' ? <FaSun /> : <FaMoon />}
             </Button>
           </div>
+          
+          <div className="me-3">
+            <WidgetNotifications />
+          </div>
+          <ThemeToggle />
         </div>
       </Container>
     </Navbar>

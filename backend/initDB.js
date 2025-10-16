@@ -14,9 +14,8 @@ const initDatabase = async () => {
             // Create admin user
             const admin = new User({
                 username: 'admin',
-                role: 'Admin',
-                team: 'None',
-                level: 'Lead'
+                password: 'admin123',
+                role: 'Admin'
             });
             
             await admin.save();
@@ -32,4 +31,4 @@ const initDatabase = async () => {
     }
 };
 
-initDatabase(); 
+initDatabase();

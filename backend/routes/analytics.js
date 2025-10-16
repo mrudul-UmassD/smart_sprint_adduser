@@ -50,30 +50,58 @@ router.get('/burndown/:projectId', auth, async (req, res) => {
 // Get dashboard data
 router.get('/dashboard', auth, async (req, res) => {
   try {
-    const { timeRange, projectId } = req.query;
-    const userId = req.user.id;
+    const { timeRange, projectId, startDate, endDate, userId, priority, status } = req.query;
+    const userIdFromToken = req.user.id;
     
     // Default to last 30 days if no time range is specified
     const days = timeRange ? parseInt(timeRange) : 30;
     
     // Calculate date range
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
+    let startDateObj, endDateObj;
     
-    // Query parameters for filtering
+    // Use provided dates if valid, otherwise fall back to calculated dates
+    if (startDate && endDate) {
+      try {
+        startDateObj = new Date(startDate);
+        endDateObj = new Date(endDate);
+        
+        // Validate dates are valid
+        if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
+          throw new Error('Invalid date format');
+        }
+      } catch (dateError) {
+        console.warn('Invalid date format received, using default dates', dateError);
+        endDateObj = new Date();
+        startDateObj = new Date();
+        startDateObj.setDate(startDateObj.getDate() - days);
+      }
+    } else {
+      endDateObj = new Date();
+      startDateObj = new Date();
+      startDateObj.setDate(startDateObj.getDate() - days);
+    }
+    
+    console.log('Using date range:', { 
+      startDate: startDateObj.toISOString(), 
+      endDate: endDateObj.toISOString() 
+    });
+    
+    // Query parameters for filtering tasks
     const dateFilter = {
-      createdAt: { $gte: startDate, $lte: endDate }
+      createdAt: { 
+        $gte: startDateObj, 
+        $lte: endDateObj 
+      }
     };
     
     // Project filter based on user role and projectId
     let projectFilter = {};
     
-    if (projectId) {
+    if (projectId && projectId !== 'all') {
       projectFilter = { _id: projectId };
     } else if (req.user.role === 'Developer') {
       // For developers, only show projects they're part of
-      const projects = await Project.find({ 'members.user': userId });
+      const projects = await Project.find({ 'members.user': userIdFromToken });
       projectFilter = { _id: { $in: projects.map(p => p._id) } };
     }
     
@@ -81,81 +109,53 @@ router.get('/dashboard', auth, async (req, res) => {
     const projects = await Project.find(projectFilter)
       .select('name startDate endDate members');
     
+    // Additional filters
+    const additionalFilters = {};
+    if (userId) additionalFilters.assignee = userId;
+    if (priority) additionalFilters.priority = priority;
+    if (status) additionalFilters.status = status;
+    
     // Get tasks data within date range
     const tasks = await Task.find({ 
       ...dateFilter,
-      project: projectId ? projectId : { $in: projects.map(p => p._id) }
+      ...additionalFilters,
+      project: projectId && projectId !== 'all' ? projectId : { $in: projects.map(p => p._id) }
     });
     
-    // Calculate task metrics
-    const taskStatusCount = tasks.reduce((acc, task) => {
-      acc[task.status] = (acc[task.status] || 0) + 1;
-      return acc;
-    }, { todo: 0, inProgress: 0, review: 0, done: 0 });
-    
-    // Calculate task completion trend over time
-    const completionTrend = [];
-    let currentDate = new Date(startDate);
-    
-    while (currentDate <= endDate) {
-      const date = currentDate.toISOString().split('T')[0];
-      const completedTasks = tasks.filter(task => 
-        task.status === 'done' && 
-        new Date(task.updatedAt).toISOString().split('T')[0] === date
-      ).length;
-      
-      completionTrend.push({ date, count: completedTasks });
-      currentDate.setDate(currentDate.getDate() + 1);
+    // Safety check for tasks
+    if (!Array.isArray(tasks)) {
+      throw new Error('Failed to retrieve tasks data');
     }
     
-    // Calculate high priority task count
-    const highPriorityCount = tasks.filter(task => 
-      task.priority === 'high' && task.status !== 'done'
-    ).length;
+    // Calculate task status distribution
+    const tasksByStatus = tasks.reduce((acc, task) => {
+      const status = task.status || 'Unknown';
+      acc[status] = (acc[status] || 0) + 1;
+      return acc;
+    }, {});
     
-    // Calculate project health
-    const projectHealth = projects.map(project => {
-      const projectTasks = tasks.filter(task => 
-        task.project.toString() === project._id.toString()
-      );
-      
-      const completedTasks = projectTasks.filter(task => task.status === 'done').length;
-      const totalTasks = projectTasks.length;
-      const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
-      
-      // Calculate health based on completion rate and time elapsed
-      const startDate = new Date(project.startDate);
-      const endDate = new Date(project.endDate);
-      const totalDuration = endDate - startDate;
-      const elapsed = Date.now() - startDate;
-      const timeProgress = Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
-      
-      let health = 'good';
-      if (timeProgress > completionRate + 20) {
-        health = 'critical';
-      } else if (timeProgress > completionRate + 10) {
-        health = 'at-risk';
-      }
-      
-      return {
-        projectId: project._id,
-        name: project.name,
-        completionRate: completionRate.toFixed(1),
-        timeProgress: timeProgress.toFixed(1),
-        health
-      };
-    });
+    // Calculate task priority distribution
+    const tasksByPriority = tasks.reduce((acc, task) => {
+      const priority = task.priority || 'Unknown';
+      acc[priority] = (acc[priority] || 0) + 1;
+      return acc;
+    }, {});
     
+    // Format the response
     res.json({
-      taskMetrics: {
-        statusDistribution: taskStatusCount,
-        highPriorityCount,
-        total: tasks.length
+      timeRange: {
+        startDate: startDateObj,
+        endDate: endDateObj,
+        days
       },
-      completionTrend,
-      projectHealth,
-      timeRange: days,
-      projects: projects.map(p => ({ id: p._id, name: p.name }))
+      taskCount: tasks.length,
+      tasksByStatus,
+      tasksByPriority,
+      projects: projects.map(p => ({ 
+        id: p._id, 
+        name: p.name,
+        taskCount: tasks.filter(t => t.project.toString() === p._id.toString()).length
+      }))
     });
     
   } catch (error) {

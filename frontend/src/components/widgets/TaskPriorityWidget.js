@@ -19,7 +19,7 @@ const TaskPriorityWidget = ({
 
   useEffect(() => {
     fetchData();
-  }, [config.projectId]);
+  }, [config.projectId, fetchData]);
 
   const fetchData = async () => {
     try {
@@ -158,4 +158,4 @@ const TaskPriorityWidget = ({
   );
 };
 
-export default TaskPriorityWidget; 
+export default TaskPriorityWidget;

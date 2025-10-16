@@ -88,11 +88,14 @@ export const showApiNotification = ({
   }
 };
 
-export default {
+// Named object for default export
+const NotificationUtils = {
   showNotification,
   showSuccess,
   showError,
   showWarning,
   showInfo,
   showApiNotification
-}; 
+};
+
+export default NotificationUtils;
