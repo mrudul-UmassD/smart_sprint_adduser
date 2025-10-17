@@ -3,6 +3,9 @@ import TaskProgressWidget from './TaskProgressWidget';
 import BurndownWidget from './BurndownWidget';
 import TimeTrackingWidget from './TimeTrackingWidget';
 import CalendarWidget from './CalendarWidget';
+import TeamActivityWidget from './TeamActivityWidget';
+import ProjectMetricsWidget from './ProjectMetricsWidget';
+import TeamPerformanceWidget from './TeamPerformanceWidget';
 import { 
   AssignmentTurnedIn, 
   Timer,
@@ -10,7 +13,8 @@ import {
   EventNote,
   Group,
   BarChart,
-  Assessment
+  Assessment,
+  Speed
 } from '@mui/icons-material';
 import BurndownChartWidget from './BurndownChartWidget';
 import TaskPriorityWidget from './TaskPriorityWidget';
@@ -70,7 +74,7 @@ const WIDGET_REGISTRY = {
   },
   
   TeamActivity: {
-    component: null, // To be implemented
+    component: TeamActivityWidget,
     title: 'Team Activity',
     description: 'View recent activity from your team members',
     icon: <Group />,
@@ -80,11 +84,21 @@ const WIDGET_REGISTRY = {
   },
   
   ProjectMetrics: {
-    component: null, // To be implemented
+    component: ProjectMetricsWidget,
     title: 'Project Metrics',
     description: 'Key metrics for your active projects',
     icon: <BarChart />,
     defaultConfig: {},
+    roles: ['Admin', 'Project Manager'],
+    defaultDimensions: { w: 6, h: 8 }
+  },
+  
+  TeamPerformance: {
+    component: TeamPerformanceWidget,
+    title: 'Team Performance',
+    description: 'View team performance metrics and statistics',
+    icon: <Speed />,
+    defaultConfig: { team: null },
     roles: ['Admin', 'Project Manager'],
     defaultDimensions: { w: 6, h: 8 }
   },
