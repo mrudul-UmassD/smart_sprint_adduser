@@ -2,6 +2,7 @@ import React from 'react';
 import TaskProgressWidget from './TaskProgressWidget';
 import BurndownWidget from './BurndownWidget';
 import TimeTrackingWidget from './TimeTrackingWidget';
+import CalendarWidget from './CalendarWidget';
 import { 
   AssignmentTurnedIn, 
   Timer,
@@ -59,7 +60,7 @@ const WIDGET_REGISTRY = {
   },
   
   Calendar: {
-    component: null, // To be implemented
+    component: CalendarWidget,
     title: 'Calendar',
     description: 'View upcoming deadlines and events',
     icon: <EventNote />,

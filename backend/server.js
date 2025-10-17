@@ -14,6 +14,7 @@ const {
   requestSizeLimit 
 } = require('./middleware/security');
 const helmet = require('helmet');
+const DatabaseSetup = require('./utils/databaseSetup');
 
 // Load environment variables
 dotenv.config();
@@ -343,95 +344,122 @@ process.on('unhandledRejection', (err) => {
 // Create server variable to allow graceful shutdown
 let server;
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
-.then(() => {
-  console.log('Connected to MongoDB');
-  // Start server
-  const PORT = process.env.PORT || 5000;
-  
-  // Create server with error handling
-  const startServer = () => {
-    try {
-      server = app.listen(PORT, () => {
-        console.log(`Server running on port ${PORT}`);
-        
-        // Initialize scheduled tasks
-        const { scheduleDailyTasks } = require('./utils/scheduledTasks');
-        scheduleDailyTasks();
-      });
-      
-      // Initialize Socket.io
-      const io = require('socket.io')(server, {
-        cors: {
-          origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-          methods: ['GET', 'POST']
-        }
-      });
-      
-      // Socket.io connection handling
-      io.on('connection', (socket) => {
-        console.log('New client connected');
-        
-        // Handle client disconnection
-        socket.on('disconnect', () => {
-          console.log('Client disconnected');
+// Initialize database setup
+const dbSetup = new DatabaseSetup();
+
+// Setup database with automatic fallback
+const initializeApp = async () => {
+  try {
+    console.log('🚀 Starting Smart Sprint application...');
+    
+    // Setup database connection
+    const mongoUri = await dbSetup.setupDatabase();
+    console.log(`📊 Using MongoDB URI: ${mongoUri}`);
+    
+    // Update environment variable if using local fallback
+    if (mongoUri !== process.env.MONGODB_URI) {
+      process.env.MONGODB_URI = mongoUri;
+      console.log('🔄 Updated MONGODB_URI to use local database');
+    }
+    
+    // Start server
+    const PORT = process.env.PORT || 5000;
+    
+    // Create server with error handling
+    const startServer = () => {
+      try {
+        server = app.listen(PORT, () => {
+          console.log(`🌟 Server running on port ${PORT}`);
+          console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+          console.log('✅ Smart Sprint is ready to use!');
+          
+          // Initialize scheduled tasks
+          const { scheduleDailyTasks } = require('./utils/scheduledTasks');
+          scheduleDailyTasks();
         });
         
-        // Join a user-specific room
-        socket.on('join-user', (userId) => {
-          if (userId) {
-            socket.join(`user:${userId}`);
-            console.log(`User ${userId} joined their personal channel`);
+        // Initialize Socket.io
+        const io = require('socket.io')(server, {
+          cors: {
+            origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+            methods: ['GET', 'POST']
           }
         });
-      });
-      
-      // Make io available globally
-      app.set('io', io);
-      
-      // Handle server errors
-      server.on('error', (error) => {
-        if (error.code === 'EADDRINUSE') {
-          console.log(`Port ${PORT} is already in use, trying again in 10 seconds...`);
-          setTimeout(() => {
-            server.close();
-            startServer();
-          }, 10000);
-        } else {
-          console.error('Server error:', error);
-        }
-      });
-    } catch (error) {
-      console.error('Error starting server:', error);
-    }
-  };
-  
-  startServer();
-})
-.catch((error) => {
-  console.error('MongoDB connection error:', error);
-}); 
+        
+        // Socket.io connection handling
+        io.on('connection', (socket) => {
+          console.log('New client connected');
+          
+          // Handle client disconnection
+          socket.on('disconnect', () => {
+            console.log('Client disconnected');
+          });
+          
+          // Join a user-specific room
+          socket.on('join-user', (userId) => {
+            if (userId) {
+              socket.join(`user:${userId}`);
+              console.log(`User ${userId} joined their personal channel`);
+            }
+          });
+        });
+        
+        // Make io available globally
+        app.set('io', io);
+        
+        // Handle server errors
+        server.on('error', (error) => {
+          if (error.code === 'EADDRINUSE') {
+            console.log(`⚠️ Port ${PORT} is already in use, trying again in 10 seconds...`);
+            setTimeout(() => {
+              server.close();
+              startServer();
+            }, 10000);
+          } else {
+            console.error('❌ Server error:', error);
+          }
+        });
+      } catch (error) {
+        console.error('❌ Error starting server:', error);
+      }
+    };
+    
+    startServer();
+    
+  } catch (error) {
+    console.error('❌ Failed to initialize application:', error.message);
+    console.log('\n📋 Troubleshooting steps:');
+    console.log('1. Check if MongoDB is installed and running');
+    console.log('2. Verify your MONGODB_URI in the .env file');
+    console.log('3. Ensure you have proper network connectivity');
+    console.log('4. Check firewall settings');
+    console.log('\nFor more help, see the DEPLOYMENT_GUIDE.md file');
+    process.exit(1);
+  }
+};
+
+// Start the application
+initializeApp(); 
 
 // Graceful shutdown function
-const gracefulShutdown = () => {
-  console.log('Shutting down gracefully...');
+const gracefulShutdown = async () => {
+  console.log('🔄 Shutting down gracefully...');
   if (server) {
     server.close(() => {
-      console.log('Server closed');
-      // Close mongoose connection without callback
-      mongoose.connection.close()
-        .then(() => {
-          console.log('MongoDB connection closed');
-          process.exit(0);
-        })
-        .catch(err => {
-          console.error('Error closing MongoDB connection:', err);
-          process.exit(1);
-        });
+      console.log('🛑 Server closed');
+      // Close mongoose connection and database setup
+      Promise.all([
+        mongoose.connection.close(),
+        dbSetup.disconnect()
+      ])
+      .then(() => {
+        console.log('🔌 Database connections closed');
+        process.exit(0);
+      })
+      .catch(err => {
+        console.error('❌ Error closing database connections:', err);
+        process.exit(1);
+      });
     });
   } else {
     process.exit(0);
@@ -439,7 +467,7 @@ const gracefulShutdown = () => {
   
   // Force close if graceful shutdown takes too long
   setTimeout(() => {
-    console.error('Forcing shutdown after timeout');
+    console.error('⏰ Forcing shutdown after timeout');
     process.exit(1);
   }, 10000);
 };
