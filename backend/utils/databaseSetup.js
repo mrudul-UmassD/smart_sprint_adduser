@@ -3,6 +3,7 @@ const { spawn, exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { MongoMemoryServer } = require('mongodb-memory-server');
 
 class DatabaseSetup {
   constructor() {
@@ -10,6 +11,33 @@ class DatabaseSetup {
     this.isMac = os.platform() === 'darwin';
     this.isLinux = os.platform() === 'linux';
     this.localMongoUri = 'mongodb://localhost:27017/smart-sprint';
+    this.mongoServer = null;
+  }
+
+  /**
+   * Start in-memory MongoDB server
+   */
+  async startMemoryServer() {
+    console.log('🚀 Starting in-memory MongoDB server...');
+    try {
+      this.mongoServer = await MongoMemoryServer.create();
+      const mongoUri = this.mongoServer.getUri();
+      console.log(`✅ In-memory MongoDB server started at: ${mongoUri}`);
+      return mongoUri;
+    } catch (error) {
+      console.error('❌ Failed to start in-memory MongoDB server:', error);
+      throw new Error('Failed to start in-memory MongoDB server');
+    }
+  }
+
+  /**
+   * Stop in-memory MongoDB server
+   */
+  async stopMemoryServer() {
+    if (this.mongoServer) {
+      await this.mongoServer.stop();
+      console.log('🛑 In-memory MongoDB server stopped.');
+    }
   }
 
   /**
@@ -210,7 +238,7 @@ docker run -d -p 27017:27017 --name mongodb mongo:latest
           password: 'admin123',
           role: 'Admin',
           team: 'admin',
-          level: 'Senior'
+          level: 'admin'
         });
         
         await admin.save();
@@ -308,6 +336,40 @@ docker run -d -p 27017:27017 --name mongodb mongo:latest
     } catch (error) {
       console.error('❌ Error disconnecting from MongoDB:', error.message);
     }
+  }
+
+  /**
+   * Initialize database connection and setup
+   */
+  async initialize() {
+    console.log('🔍 Setting up MongoDB database...');
+    
+    // For development, use in-memory server
+    if (process.env.NODE_ENV === 'development') {
+      try {
+        const mongoUri = await this.startMemoryServer();
+        await this.testConnection(mongoUri);
+        return mongoUri;
+      } catch (error) {
+        console.error('❌ Failed to initialize in-memory database:', error);
+        throw new Error('Failed to initialize in-memory database');
+      }
+    }
+
+    // For production or other environments, use MONGODB_URI
+    const mongoUri = process.env.MONGODB_URI || this.localMongoUri;
+    
+    // Test connection to the MongoDB URI
+    const connected = await this.testConnection(mongoUri);
+    
+    if (!connected) {
+      throw new Error(`Unable to connect to MongoDB at ${mongoUri}`);
+    }
+
+    // Initialize the database (e.g., create admin user)
+    await this.initializeDatabase();
+    
+    return mongoUri;
   }
 }
 

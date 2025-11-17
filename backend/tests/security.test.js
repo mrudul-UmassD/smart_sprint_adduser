@@ -5,7 +5,7 @@ describe('Security Features Tests', () => {
   describe('Rate Limiting', () => {
     test('should limit login attempts', async () => {
       const loginAttempts = [];
-      for (let i = 0; i < 6; i++) {
+      for (let i = 0; i < 15; i++) {
         const response = await request(app)
           .post('/api/auth/login')
           .send({ username: 'testuser', password: 'wrongpassword' });

@@ -720,31 +720,30 @@ const Dashboard = () => {
     // Handle applying a dashboard template
     const handleApplyTemplate = (template) => {
         try {
-            // Apply the template configuration
+            console.log('Applying template:', template);
+            
+            // Set widgets from template
             setWidgets(template.widgets || []);
             
-            // Create layouts from template widgets
-            const newLayouts = { lg: [] };
-            template.widgets.forEach(widget => {
-                if (widget.layout) {
-                    newLayouts.lg.push({
-                        i: widget.id || uuidv4(),
-                        ...widget.layout
-                    });
-                }
-            });
+            // Set layouts from template
+            if (template.layouts) {
+                setLayouts(template.layouts);
+            } else {
+                // If no layouts provided, generate default layout
+                generateDefaultLayout(template.widgets);
+            }
             
-            setLayouts(newLayouts);
-            setDashboardName(`${template.name}`);
+            // Update dashboard name
+            if (template.name) {
+                setDashboardName(template.name);
+            }
             
-            setNotification({
-                show: true,
-                message: `${template.name} template applied successfully`,
-                type: 'success'
-            });
+            setIsDashboardModified(true);
+            
+            toast.success(`${template.name || 'Template'} applied successfully!`);
         } catch (error) {
             console.error('Error applying template:', error);
-            setError('Failed to apply dashboard template');
+            toast.error('Failed to apply dashboard template');
         }
     };
 
@@ -1181,6 +1180,14 @@ const Dashboard = () => {
                 </div>
                 
                 <div className="dashboard-actions">
+                    <Button
+                        variant="outline-primary"
+                        className="action-button template-button"
+                        onClick={() => setShowTemplatesModal(true)}
+                    >
+                        <FaThLarge /> Templates
+                    </Button>
+                    
                     <Button
                         variant="outline-primary"
                         className="action-button save-button"

@@ -15,7 +15,9 @@ const initDatabase = async () => {
             const admin = new User({
                 username: 'admin',
                 password: 'admin123',
-                role: 'Admin'
+                role: 'Admin',
+                team: 'admin',
+                level: 'admin'
             });
             
             await admin.save();

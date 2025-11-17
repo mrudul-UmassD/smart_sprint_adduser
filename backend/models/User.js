@@ -37,20 +37,22 @@ const userSchema = new mongoose.Schema({
     },
     team: {
         type: String,
-        enum: ['Frontend', 'Backend', 'Design', 'DevOps', 'QA'],
+        enum: ['Frontend', 'Backend', 'Design', 'DevOps', 'QA', 'PM', 'admin'],
         required: function() {
-            // Only required for Developer and Designer roles
-            return ['Developer', 'Designer'].includes(this.role);
+            // Required for all roles except when not set
+            return ['Developer', 'Designer', 'Project Manager', 'Admin'].includes(this.role);
         },
-        // This ensures the field is not set for Admin and Project Manager roles
         validate: {
             validator: function(value) {
-                if (['Admin', 'Project Manager'].includes(this.role)) {
-                    return value === undefined || value === null;
+                if (this.role === 'Admin') {
+                    return value === 'admin';
+                }
+                if (this.role === 'Project Manager') {
+                    return value === 'PM';
                 }
                 return true;
             },
-            message: 'Team should not be set for Admin or Project Manager roles'
+            message: 'Team should be \'admin\' for Admin role and \'PM\' for Project Manager role'
         }
     },
     projects: [{
@@ -59,20 +61,22 @@ const userSchema = new mongoose.Schema({
     }],
     level: {
         type: String,
-        enum: ['Junior', 'Mid', 'Senior', 'Lead'],
+        enum: ['Junior', 'Mid', 'Senior', 'Lead', 'PM', 'admin'],
         required: function() {
-            // Only required for Developer and Designer roles
-            return ['Developer', 'Designer'].includes(this.role);
+            // Required for all roles
+            return ['Developer', 'Designer', 'Project Manager', 'Admin'].includes(this.role);
         },
-        // This ensures the field is not set for Admin and Project Manager roles
         validate: {
             validator: function(value) {
-                if (['Admin', 'Project Manager'].includes(this.role)) {
-                    return value === undefined || value === null;
+                if (this.role === 'Admin') {
+                    return value === 'admin';
+                }
+                if (this.role === 'Project Manager') {
+                    return value === 'PM';
                 }
                 return true;
             },
-            message: 'Level should not be set for Admin or Project Manager roles'
+            message: 'Level should be \'admin\' for Admin role and \'PM\' for Project Manager role'
         }
     },
     profilePicture: {

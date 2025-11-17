@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Spinner, Alert, Button } from 'react-bootstrap';
 import { Pie } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
-import axios from 'axios';
+import axios from '../../utils/axiosConfig';
 
 // Register the required Chart.js components
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -17,11 +17,7 @@ const TaskPriorityWidget = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    fetchData();
-  }, [config.projectId, fetchData]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -61,7 +57,11 @@ const TaskPriorityWidget = ({
       setError('Failed to load priority data');
       setLoading(false);
     }
-  };
+  }, [config.projectId]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   return (
     <Card className="h-100 widget">

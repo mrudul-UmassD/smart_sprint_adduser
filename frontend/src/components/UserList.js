@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../utils/axiosConfig';
 import {
     Box,
     Button,
@@ -39,7 +39,7 @@ const UserList = () => {
         username: '',
         role: '',
         team: 'None',
-        level: 'Dev',
+        level: 'Mid',
     });
     const [groupedUsers, setGroupedUsers] = useState({});
     const [displayMode, setDisplayMode] = useState('list'); // 'list' or 'teams'
@@ -51,24 +51,24 @@ const UserList = () => {
     useEffect(() => {
         // Group users by team when users or displayMode changes
         if (displayMode === 'teams') {
+            console.log('Grouping users for team view. Total users:', users.length);
             const grouped = users.reduce((acc, user) => {
                 const team = user.team || 'Unassigned';
+                console.log('User:', user.username, 'Role:', user.role, 'Team:', team);
                 if (!acc[team]) {
                     acc[team] = [];
                 }
                 acc[team].push(user);
                 return acc;
             }, {});
+            console.log('Grouped users:', Object.keys(grouped), grouped);
             setGroupedUsers(grouped);
         }
     }, [users, displayMode]);
 
     const fetchUsers = async () => {
         try {
-            const token = localStorage.getItem('token');
-            const response = await axios.get(`${API_CONFIG.BASE_URL}${API_CONFIG.USERS_ENDPOINT}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            const response = await axios.get(`${API_CONFIG.BASE_URL}${API_CONFIG.USERS_ENDPOINT}`);
             setUsers(response.data);
         } catch (error) {
             console.error('Error fetching users:', error);
@@ -91,7 +91,7 @@ const UserList = () => {
                 username: '',
                 role: '',
                 team: 'None',
-                level: 'Dev',
+                level: 'Mid',
             });
         }
         setOpen(true);
@@ -110,8 +110,8 @@ const UserList = () => {
             setFormData({
                 ...formData,
                 role: selectedRole,
-                team: selectedRole === 'Admin' ? 'admin' : 'pm',
-                level: selectedRole === 'Admin' ? 'admin' : 'pm'
+                team: selectedRole === 'Admin' ? 'admin' : 'PM',
+                level: selectedRole === 'Admin' ? 'admin' : 'PM'
             });
         } else {
             setFormData({
@@ -137,17 +137,11 @@ const UserList = () => {
                     return;
                 }
             }
-
-            const token = localStorage.getItem('token');
             
             if (selectedUser) {
-                await axios.put(`${API_CONFIG.BASE_URL}${API_CONFIG.USERS_ENDPOINT}/${selectedUser._id}`, formData, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
+                await axios.put(`${API_CONFIG.BASE_URL}${API_CONFIG.USERS_ENDPOINT}/${selectedUser._id}`, formData);
             } else {
-                await axios.post(`${API_CONFIG.BASE_URL}${API_CONFIG.USERS_ENDPOINT}`, formData, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
+                await axios.post(`${API_CONFIG.BASE_URL}${API_CONFIG.USERS_ENDPOINT}`, formData);
             }
 
             handleClose();
@@ -160,10 +154,7 @@ const UserList = () => {
 
     const handleDelete = async (userId) => {
         try {
-            const token = localStorage.getItem('token');
-            await axios.delete(`${API_CONFIG.BASE_URL}${API_CONFIG.USERS_ENDPOINT}/${userId}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            await axios.delete(`${API_CONFIG.BASE_URL}${API_CONFIG.USERS_ENDPOINT}/${userId}`);
             fetchUsers();
         } catch (error) {
             console.error('Error deleting user:', error);
@@ -184,13 +175,12 @@ const UserList = () => {
     const getTeamBadgeColor = (team) => {
         switch(team) {
             case 'Design': return 'info';
-            case 'Database': return 'dark';
             case 'Backend': return 'success';
             case 'Frontend': return 'primary';
             case 'DevOps': return 'danger';
-            case 'Tester/Security': return 'warning';
+            case 'QA': return 'warning';
             case 'admin': return 'danger';
-            case 'pm': return 'warning';
+            case 'PM': return 'warning';
             default: return 'secondary';
         }
     };
@@ -228,13 +218,11 @@ const UserList = () => {
     // Update user's team in the database
     const updateUserTeam = async (userId, newTeam) => {
         try {
-            const token = localStorage.getItem('token');
             const user = users.find(u => u._id === userId);
             
             await axios.put(
                 `${API_CONFIG.BASE_URL}${API_CONFIG.USERS_ENDPOINT}/${userId}`, 
-                { ...user, team: newTeam },
-                { headers: { Authorization: `Bearer ${token}` } }
+                { ...user, team: newTeam }
             );
             
             // Update local state
@@ -248,17 +236,20 @@ const UserList = () => {
 
     // Render team cards for the team view
     const renderTeamCards = () => {
-        // Get all possible teams including ones without users
+        // Get all possible teams including ones without users - matching backend model enum
         const allTeams = [
-            'Design', 'Database', 'Backend', 'Frontend', 
-            'DevOps', 'Tester/Security', 'admin', 'pm', 'None'
+            'Frontend', 'Backend', 'Design', 'DevOps', 'QA', 'PM', 'admin', 'None'
         ];
         
         return (
             <DragDropContext onDragEnd={handleDragEnd}>
                 <Row>
                     {allTeams.map(team => {
-                        const teamName = team === 'None' ? 'Unassigned' : team;
+                        let teamName = team;
+                        if (team === 'None') teamName = 'Unassigned';
+                        else if (team === 'admin') teamName = 'Admin';
+                        else if (team === 'PM') teamName = 'Project Manager';
+                        
                         const teamUsers = groupedUsers[team] || [];
                         
                         return (
@@ -495,12 +486,11 @@ const UserList = () => {
                                 className="mb-3"
                             >
                                 <MenuItem value="None">None</MenuItem>
-                                <MenuItem value="Design">Design</MenuItem>
-                                <MenuItem value="Database">Database</MenuItem>
-                                <MenuItem value="Backend">Backend</MenuItem>
                                 <MenuItem value="Frontend">Frontend</MenuItem>
+                                <MenuItem value="Backend">Backend</MenuItem>
+                                <MenuItem value="Design">Design</MenuItem>
                                 <MenuItem value="DevOps">DevOps</MenuItem>
-                                <MenuItem value="Tester/Security">Tester/Security</MenuItem>
+                                <MenuItem value="QA">QA</MenuItem>
                             </TextField>
                             <TextField
                                 margin="dense"
@@ -514,7 +504,7 @@ const UserList = () => {
                             >
                                 <MenuItem value="Lead">Lead</MenuItem>
                                 <MenuItem value="Senior">Senior</MenuItem>
-                                <MenuItem value="Dev">Dev</MenuItem>
+                                <MenuItem value="Mid">Mid</MenuItem>
                                 <MenuItem value="Junior">Junior</MenuItem>
                             </TextField>
                         </>

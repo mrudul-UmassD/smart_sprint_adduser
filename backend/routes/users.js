@@ -51,6 +51,8 @@ router.get('/', auth, async (req, res) => {
             return res.status(403).json({ error: 'Access denied' });
         }
         const users = await User.find({}).select('-password');
+        console.log('Fetching users - count:', users.length);
+        users.forEach(u => console.log('User:', u.username, 'Role:', u.role, 'Team:', u.team, 'Level:', u.level));
         res.json(users);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -74,8 +76,8 @@ router.post('/', auth, async (req, res) => {
             req.body.team = 'admin';
             req.body.level = 'admin';
         } else if (req.body.role === 'Project Manager') {
-            req.body.team = 'pm';
-            req.body.level = 'pm';
+            req.body.team = 'PM';
+            req.body.level = 'PM';
         }
 
         // Set initial password same as username
