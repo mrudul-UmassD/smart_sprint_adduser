@@ -64,8 +64,8 @@ const corsOptions = {
       process.env.FRONTEND_URL || 'https://smart-sprint.onrender.com'
     ];
     
-    // Allow requests with no origin (like mobile apps, curl, etc)
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+    // Allow all Vercel domains (*.vercel.app)
+    if (!origin || allowedOrigins.indexOf(origin) !== -1 || (origin && origin.includes('.vercel.app'))) {
       callback(null, true);
     } else {
       console.log('CORS blocked origin:', origin);
