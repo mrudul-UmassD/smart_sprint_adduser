@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "name": "smart-sprint",
+  "buildCommand": "cd frontend && npm install && npm run build",
+  "outputDirectory": "frontend/build",
+  "devCommand": "cd frontend && npm start",
+  "installCommand": "cd frontend && npm install",
+  "framework": "create-react-app",
+  "regions": ["iad1"],
+  "env": {
+    "REACT_APP_API_URL": "https://web-production-68c2.up.railway.app"
+  },
+  "build": {
+    "env": {
+      "REACT_APP_API_URL": "https://web-production-68c2.up.railway.app"
+    }
+  }
+}
