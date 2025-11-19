@@ -197,6 +197,11 @@ app.use('/api/analytics', apiLimiter, analyticsRoutes);
 app.use('/api/teams', teamsRoutes);
 app.use('/api/notifications', apiLimiter, notificationsRoutes);
 
+// Health check endpoint (must be before catch-all route)
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', message: 'Server is running' });
+});
+
 // Serve static assets in production
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../frontend/build')));
@@ -205,11 +210,6 @@ if (process.env.NODE_ENV === 'production') {
     res.sendFile(path.resolve(__dirname, '../frontend/build', 'index.html'));
   });
 }
-
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok' });
-});
 
 // Test endpoint to check login functionality
 app.post('/api/test/login', async (req, res) => {
