@@ -3,7 +3,17 @@ const { spawn, exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { MongoMemoryServer } = require('mongodb-memory-server');
+
+// Only require mongodb-memory-server in development/test environments
+let MongoMemoryServer = null;
+try {
+  if (process.env.NODE_ENV !== 'production') {
+    MongoMemoryServer = require('mongodb-memory-server').MongoMemoryServer;
+  }
+} catch (error) {
+  // mongodb-memory-server not available (production environment)
+  console.log('ℹ️  mongodb-memory-server not available - using production MongoDB only');
+}
 
 class DatabaseSetup {
   constructor() {
@@ -18,6 +28,11 @@ class DatabaseSetup {
    * Start in-memory MongoDB server
    */
   async startMemoryServer() {
+    if (!MongoMemoryServer) {
+      console.log('⚠️  In-memory MongoDB not available in production environment');
+      throw new Error('In-memory MongoDB server not available in production');
+    }
+    
     console.log('🚀 Starting in-memory MongoDB server...');
     try {
       this.mongoServer = await MongoMemoryServer.create();
