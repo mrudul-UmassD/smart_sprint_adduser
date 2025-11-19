@@ -314,7 +314,7 @@ const Login = () => {
                                             {loading ? 'Logging in...' : 'Login'}
                                         </Button>
                                         
-                                        <Button
+                                        {/* <Button
                                             variant="outlined"
                                             fullWidth
                                             sx={{ mb: 2 }}
@@ -322,11 +322,11 @@ const Login = () => {
                                             disabled={loading}
                                         >
                                             Quick Admin Login
-                                        </Button>
+                                        </Button> */}
                                         
-                                        <Typography variant="body2" color="textSecondary" align="center">
+                                        {/* <Typography variant="body2" color="textSecondary" align="center">
                                             Admin login: username 'admin', password 'admin' or 'adminadmin'
-                                        </Typography>
+                                        </Typography> */}
                                     </Box>
                                 </Col>
                             </Row>

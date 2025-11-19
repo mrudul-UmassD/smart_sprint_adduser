@@ -170,9 +170,9 @@ const Navigation = () => {
                 <DashboardIcon fontSize="small" className="me-1" /> Dashboard
               </Nav.Link>
               
-              <Nav.Link as={Link} to="/custom-dashboard">
+              {/* <Nav.Link as={Link} to="/custom-dashboard">
                 <WidgetsIcon fontSize="small" className="me-1" /> Custom Dashboard
-              </Nav.Link>
+              </Nav.Link> */}
               
               {canManageUsers && (
                 <Nav.Link as={Link} to="/users">
@@ -287,14 +287,14 @@ const Navigation = () => {
               <DashboardIcon fontSize="small" className="me-3" /> Dashboard
             </ListGroup.Item>
             
-            <ListGroup.Item 
+            {/* <ListGroup.Item 
               action 
               as={Link} 
               to="/custom-dashboard" 
               onClick={handleDrawerToggle}
             >
               <WidgetsIcon fontSize="small" className="me-3" /> Custom Dashboard
-            </ListGroup.Item>
+            </ListGroup.Item> */}
             
             {canManageUsers && (
               <ListGroup.Item 
