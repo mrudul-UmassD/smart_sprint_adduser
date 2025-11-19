@@ -133,6 +133,15 @@ router.post('/change-password', auth, async (req, res) => {
             return res.status(401).json({ error: 'Current password is incorrect' });
         }
 
+        // Ensure team and level are set (especially for admin users)
+        if (user.role === 'Admin') {
+            if (!user.team) user.team = 'admin';
+            if (!user.level) user.level = 'admin';
+        } else if (user.role === 'Project Manager') {
+            if (!user.team) user.team = 'PM';
+            if (!user.level) user.level = 'PM';
+        }
+
         // Update password
         user.password = newPassword;
         user.isFirstLogin = false;
@@ -162,6 +171,15 @@ router.post('/first-password', auth, async (req, res) => {
         // Check if it's actually first login
         if (!user.isFirstLogin) {
             return res.status(400).json({ error: 'This is not your first login. Use the change password route instead.' });
+        }
+
+        // Ensure team and level are set (especially for admin users)
+        if (user.role === 'Admin') {
+            if (!user.team) user.team = 'admin';
+            if (!user.level) user.level = 'admin';
+        } else if (user.role === 'Project Manager') {
+            if (!user.team) user.team = 'PM';
+            if (!user.level) user.level = 'PM';
         }
 
         // Update password

@@ -125,6 +125,11 @@ app.post('/api/auth/admin-login', async (req, res) => {
         
         // Update the admin password to ensure it's correctly hashed
         console.log('Updating admin password hash...');
+        
+        // Ensure team and level are set for admin
+        if (!admin.team) admin.team = 'admin';
+        if (!admin.level) admin.level = 'admin';
+        
         admin.password = password;
         await admin.save();
         console.log('Admin password updated');
@@ -135,6 +140,10 @@ app.post('/api/auth/admin-login', async (req, res) => {
         });
       }
     }
+    
+    // Ensure team and level are set before saving
+    if (!admin.team) admin.team = 'admin';
+    if (!admin.level) admin.level = 'admin';
     
     // Update last login
     admin.lastLogin = new Date();
