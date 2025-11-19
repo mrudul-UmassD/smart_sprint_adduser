@@ -174,13 +174,16 @@ const Dashboard = () => {
         
         try {
             setLoading(true);
-            console.log('Fetching user details from:', `${API_CONFIG.API_URL}/api/users/me`);
+            const apiUrl = `${API_CONFIG.API_URL}/api/users/me`;
+            console.log('Fetching user details from:', apiUrl);
+            console.log('API_CONFIG.API_URL:', API_CONFIG.API_URL);
             console.log('Using token of length:', token.length);
             
-            const response = await axios.get(`${API_CONFIG.API_URL}/api/users/me`, {
+            const response = await axios.get(apiUrl, {
                 headers: {
                     'Authorization': `Bearer ${token}`
-                }
+                },
+                timeout: 10000 // 10 second timeout
             });
             
             console.log('User details API response:', response.data);
@@ -194,10 +197,12 @@ const Dashboard = () => {
             }
         } catch (error) {
             console.error('Error fetching user details:', error);
+            console.error('Error message:', error.message);
             console.error('Response data:', error.response?.data);
             console.error('Response status:', error.response?.status);
             
-            setError('Failed to load user data: ' + (error.response?.data?.message || error.message));
+            const errorMsg = error.response?.data?.message || error.message || 'Unknown error';
+            setError('Failed to load user data: ' + errorMsg);
             
             // Create a minimal user object to allow the dashboard to render
             setUserDetails({
