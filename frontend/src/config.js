@@ -11,8 +11,8 @@ const getAPIUrl = () => {
     return 'http://localhost:5000';
   }
   
-  // Production fallback (same domain)
-  return '';
+  // Production fallback - Railway backend
+  return 'https://web-production-68c2.up.railway.app';
 };
 
 const API_CONFIG = {
