@@ -172,6 +172,18 @@ const Dashboard = () => {
             return;
         }
         
+        // Try to load user from localStorage as fallback
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+            try {
+                const userData = JSON.parse(storedUser);
+                console.log('Found user in localStorage:', userData);
+                setUserDetails(userData);
+            } catch (e) {
+                console.error('Failed to parse stored user:', e);
+            }
+        }
+        
         try {
             setLoading(true);
             const apiUrl = `${API_CONFIG.API_URL}/api/users/me`;
@@ -190,7 +202,8 @@ const Dashboard = () => {
             
             if (response.data) {
                 setUserDetails(response.data);
-                // Moved projects fetching to useEffect to prevent circular dependencies
+                // Update localStorage with fresh data
+                localStorage.setItem('user', JSON.stringify(response.data));
             } else {
                 console.error('Invalid user data received:', response.data);
                 setError('Invalid user data received');
@@ -204,13 +217,15 @@ const Dashboard = () => {
             const errorMsg = error.response?.data?.message || error.message || 'Unknown error';
             setError('Failed to load user data: ' + errorMsg);
             
-            // Create a minimal user object to allow the dashboard to render
-            setUserDetails({
-                username: 'User',
-                role: 'User',
-                team: 'Unknown',
-                level: 'Unknown'
-            });
+            // If we don't have user data from localStorage either, set minimal data
+            if (!storedUser) {
+                setUserDetails({
+                    username: 'User',
+                    role: 'User',
+                    team: 'Unknown',
+                    level: 'Unknown'
+                });
+            }
             
             // Only redirect on specific auth errors
             if (error.response && (error.response.status === 401 || error.response.status === 403)) {
@@ -218,6 +233,7 @@ const Dashboard = () => {
                 setTimeout(() => navigate('/login'), 3000);
             }
         } finally {
+            console.log('Setting loading to false');
             setLoading(false);
         }
     };
