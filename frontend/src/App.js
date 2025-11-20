@@ -13,6 +13,7 @@ import Navigation from './components/Navigation';
 import FirstLogin from './components/FirstLogin';
 import UserProfile from './components/UserProfile';
 import NotificationDemo from './components/NotificationDemo';
+import TestConnection from './components/TestConnection';
 import Box from '@mui/material/Box';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './styles.css';
@@ -178,6 +179,7 @@ function App() {
                   </PrivateRoute>
                 }
               />
+              <Route path="/test" element={<TestConnection />} />
               <Route
                 path="/users"
                 element={
