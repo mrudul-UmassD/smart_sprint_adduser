@@ -415,7 +415,7 @@ const Dashboard = () => {
             setLoading(true);
             console.log('Loading dashboard configuration...');
             
-            const response = await axios.get(`${API_CONFIG.API_URL}${API_CONFIG.USERS_ENDPOINT}/settings/dashboard`);
+            const response = await axios.get(`${API_CONFIG.API_URL}${API_CONFIG.SETTINGS_ENDPOINT}/dashboard`);
             
             console.log('Dashboard config response:', response.data);
             

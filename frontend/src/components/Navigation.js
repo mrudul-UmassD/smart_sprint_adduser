@@ -56,9 +56,12 @@ const Navigation = () => {
   const fetchProjects = async () => {
     try {
       const response = await axios.get(`${API_CONFIG.PROJECTS_ENDPOINT}`);
-      setProjects(response.data);
+      // Ensure response.data is an array
+      const projectsData = Array.isArray(response.data) ? response.data : [];
+      setProjects(projectsData);
     } catch (error) {
       console.error('Error fetching projects:', error);
+      setProjects([]); // Set empty array on error
     }
   };
   

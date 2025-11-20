@@ -32,13 +32,16 @@ export const NotificationProvider = ({ children }) => {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      setNotifications(response.data);
-      const count = response.data.filter(notif => !notif.read).length;
+      // Ensure response.data is an array
+      const notificationsData = Array.isArray(response.data) ? response.data : [];
+      setNotifications(notificationsData);
+      const count = notificationsData.filter(notif => !notif.read).length;
       setUnreadCount(count);
       setError(null);
     } catch (err) {
       console.error('Error fetching notifications:', err);
       setError('Failed to load notifications');
+      setNotifications([]); // Set empty array on error
     } finally {
       setLoading(false);
     }

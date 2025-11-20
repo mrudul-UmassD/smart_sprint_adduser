@@ -202,14 +202,7 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Server is running' });
 });
 
-// Serve static assets in production
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../frontend/build')));
-
-  app.get('*', (req, res) => {
-    res.sendFile(path.resolve(__dirname, '../frontend/build', 'index.html'));
-  });
-}
+// Frontend is served separately by Vercel - no need to serve static files here
 
 // Test endpoint to check login functionality
 app.post('/api/test/login', async (req, res) => {
