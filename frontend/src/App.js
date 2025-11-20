@@ -54,61 +54,38 @@ const FirstLoginCheck = ({ children }) => {
 };
 
 const PrivateRoute = ({ children }) => {
-    const navigate = useNavigate();
     const location = useLocation();
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
     
-    useEffect(() => {
-        const checkAuth = async () => {
-            const token = localStorage.getItem('token');
-            
-            // Debug mode override
-            if (location.search.includes('debug=true')) {
-                console.log('Debug mode enabled, bypassing authentication');
-                setIsAuthenticated(true);
-                setIsLoading(false);
-                return;
-            }
-            
-            if (!token) {
-                console.log('No token found, redirecting to login');
-                setIsAuthenticated(false);
-                setIsLoading(false);
-                return;
-            }
-            
-            try {
-                console.log('Validating token...');
-                // Optional: You can make a request to the backend to validate the token
-                // For now just check if the token exists
-                setIsAuthenticated(true);
-            } catch (err) {
-                console.error('Token validation error:', err);
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
-                setIsAuthenticated(false);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        
-        checkAuth();
-    }, [navigate, location]);
+    // Check authentication synchronously to prevent flash
+    const token = localStorage.getItem('token');
     
-    if (isLoading) {
-        return <div>Loading...</div>;
+    // Debug mode override
+    if (location.search.includes('debug=true')) {
+        console.log('Debug mode enabled, bypassing authentication');
+        return (
+            <>
+                <Navigation />
+                <FirstLoginCheck>
+                    <Box sx={{ mt: 2 }}>{children}</Box>
+                </FirstLoginCheck>
+            </>
+        );
     }
     
-    return isAuthenticated ? (
+    // If no token, redirect to login
+    if (!token) {
+        console.log('No token found, redirecting to login');
+        return <Navigate to="/login" replace />;
+    }
+    
+    // Token exists, render protected route
+    return (
         <>
             <Navigation />
             <FirstLoginCheck>
                 <Box sx={{ mt: 2 }}>{children}</Box>
             </FirstLoginCheck>
         </>
-    ) : (
-        <Navigate to="/login" />
     );
 };
 
